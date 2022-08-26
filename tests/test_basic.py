@@ -241,9 +241,10 @@ def test_auth(client: Client, ldap: LDAP, method: str):
 
 
 @pytest.mark.topology(KnownTopology.LDAP)
-def test_sudo(client: Client, ldap: LDAP):
-    u = ldap.user('test').add(password="Secret123")
-    ldap.sudorule('testrule2').add(user=u, host='ALL', command='/bin/ls')
+@pytest.mark.topology(KnownTopology.Samba)
+def test_sudo(client: Client, provider: LDAP):
+    u = provider.user('test').add(password="Secret123")
+    provider.sudorule('testrule2').add(user=u, host='ALL', command='/bin/ls')
     client.authselect.select('sssd', ['with-sudo'])
     client.sssd.enable_responder('sudo')
     client.sssd.start()
@@ -255,10 +256,21 @@ def test_sudo(client: Client, ldap: LDAP):
 def test_samba_ou(client: Client, samba: Samba):
     print(samba.ldap.naming_context)
     samba.ou('test').add()
+    samba.sudorule('testrule').add(user='ALL', host='ALL', command='/bin/ls')
+    input()
 
 
 @pytest.mark.topology(KnownTopology.AD)
 def test_ad_ou(client: Client, ad: AD):
-    u = ad.user('Administrator')
-    ad.sudorule('test').add(user=u, host='ALL', command='ALL')
+    ou = ad.ou('sudoers').add()
+    u = ad.user('tuser').add()
+    r = ad.sudorule('test', ou).add(user=u, host='ALL', command='ALL')
     input()
+    r.modify(user='ALL', host=ad.Flags.DELETE)
+    input()
+    # ad.sudorule('test', basedn=ou).add(user='ALL', host='ALL', command='ALL')
+    # ad.user('tuser').add()
+
+    # client.sssd.start()
+    # result = client.tools.id('tuser')
+    # assert result.user.name == 'tuser'

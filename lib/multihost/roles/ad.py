@@ -7,7 +7,6 @@ from ..command import RemoteCommandResult
 from ..host import ADHost
 from ..utils.ldap import HostLDAP
 from .base import BaseObject, WindowsRole
-from .ldap import LDAPObject, LDAPOrganizationalUnit, LDAPSudoRule
 
 if TYPE_CHECKING:
     from ..multihost import Multihost
@@ -40,54 +39,58 @@ class AD(WindowsRole):
         self.host.restore()
         super().teardown()
 
-    def user(self, name: str) -> ADUser:
+    def user(self, name: str, basedn: ADObject | str | None = 'cn=users') -> ADUser:
         """
         Get user object.
 
         :param name: User name.
         :type name: str
+        :param basedn: Base dn, defaults to 'cn=users'
+        :type basedn: ADObject | str | None, optional
         :return: New user object.
         :rtype: ADUser
         """
-        return ADUser(self, name)
+        return ADUser(self, name, basedn)
 
-    def group(self, name: str) -> ADGroup:
+    def group(self, name: str, basedn: ADObject | str | None = 'cn=users') -> ADGroup:
         """
         Get group object.
 
         :param name: Group name.
         :type name: str
+        :param basedn: Base dn, defaults to 'cn=users'
+        :type basedn: ADObject | str | None, optional
         :return: New group object.
         :rtype: ADGroup
         """
-        return ADGroup(self, name)
+        return ADGroup(self, name, basedn)
 
-    def ou(self, name: str, basedn: LDAPObject | str | None = None) -> LDAPOrganizationalUnit:
+    def ou(self, name: str, basedn: ADObject | str | None = None) -> ADOrganizationalUnit:
         """
         Get organizational unit object.
 
         :param name: Unit name.
         :type name: str
         :param basedn: Base dn, defaults to None
-        :type basedn: LDAPObject | str | None, optional
+        :type basedn: ADObject | str | None, optional
         :return: New organizational unit object.
-        :rtype: LDAPOrganizationalUnit
+        :rtype: ADOrganizationalUnit
         """
-        return LDAPOrganizationalUnit(self, name, basedn)
+        return ADOrganizationalUnit(self, name, basedn)
 
-    def sudorule(self, name: str, basedn: LDAPObject | str | None = None) -> LDAPSudoRule:
+    def sudorule(self, name: str, basedn: ADObject | str | None = None) -> ADSudoRule:
         """
         Get sudo rule object.
 
         :param name: Rule name.
         :type name: str
         :param basedn: Base dn, defaults to None
-        :type basedn: LDAPObject | str | None, optional
+        :type basedn: ADObject | str | None, optional
         :return: New sudo rule object.
-        :rtype: LDAPSudoRule
+        :rtype: ADSudoRule
         """
 
-        return LDAPSudoRule(self, name, basedn)
+        return ADSudoRule(self, name, basedn)
 
 
 class ADObject(BaseObject):
@@ -95,7 +98,7 @@ class ADObject(BaseObject):
     Base AD object class.
     """
 
-    def __init__(self, role: AD, command_group: str, name: str) -> None:
+    def __init__(self, role: AD, command_group: str, name: str, rdn: str, basedn: ADObject | str | None = None) -> None:
         """
         :param role: AD role object.
         :type role: AD
@@ -103,18 +106,64 @@ class ADObject(BaseObject):
         :type command_group: str
         :param name: Object name.
         :type name: str
+        :param rdn: Relative distinguished name.
+        :type rdn: str
+        :param basedn: Base dn, defaults to None
+        :type basedn: ADObject | str | None, optional
         """
         super().__init__(cli_prefix='-')
 
         self.role = role
         self.command_group = command_group
         self.name = name
-        self._identity = {'Identity': (self.cli.VALUE, self.name)}
+        self.rdn = rdn
+        self.basedn = basedn
+        self.dn = self._dn(rdn, basedn)
+        self.path = self._path(basedn)
+        self._identity = {'Identity': (self.cli.VALUE, self.dn)}
 
-    def _exec(self, op: str, args: list[str] = list(), **kwargs) -> RemoteCommandResult:
+    def _dn(self, rdn: str, basedn: ADObject | str | None = None) -> str:
+        """
+        Get distinguished name of an object.
+
+        :param rdn: Relative DN.
+        :type rdn: str
+        :param basedn: Base DN, defaults to None
+        :type basedn: ADObject | str | None, optional
+        :return: Distinguished name combined from rdn+dn+naming-context.
+        :rtype: str
+        """
+        if isinstance(basedn, ADObject):
+            return f'{rdn},{basedn.dn}'
+
+        return self.role.ldap.dn(rdn, basedn)
+
+    def _path(self, basedn: ADObject | str | None = None) -> str:
+        """
+        Get object LDAP path.
+
+        :param basedn: Base DN, defaults to None
+        :type basedn: ADObject | str | None, optional
+        :return: Distinguished name combined from basedn+naming-context.
+        :rtype: str
+        """
+        if isinstance(basedn, ADObject):
+            return basedn.dn
+
+        if not basedn:
+            return self.role.host.naming_context
+
+        return f'{basedn},{self.role.host.naming_context}'
+
+    def _exec(self, op: str, args: list[str] | str = list(), **kwargs) -> RemoteCommandResult:
+        if isinstance(args, list):
+            args = ' '.join(args)
+        elif args is None:
+            args = ''
+
         return self.role.host.exec(textwrap.dedent(f'''
             Import-Module ActiveDirectory
-            {op}-AD{self.command_group} {' '.join(args)}
+            {op}-AD{self.command_group} {args}
         ''').strip(), **kwargs)
 
     def _add(self, attrs: dict[str, tuple[BaseObject.cli, any]]) -> None:
@@ -127,7 +176,11 @@ class ADObject(BaseObject):
         """
         Delete object from AD.
         """
-        self._exec('Remove', self._build_args(self._identity))
+        args = {
+            'Confirm': (self.cli.SWITCH, False),
+            **self._identity,
+        }
+        self._exec('Remove', self._build_args(args))
 
     def get(self, attrs: list[str] | None = None) -> dict[str, list[str]]:
         """
@@ -145,15 +198,57 @@ class ADObject(BaseObject):
         out = ''
         for key, value in attrs.items():
             if value is not None:
-                out += f'{key}="{value}";'
+                if isinstance(value, list):
+                    values = [f'"{x}"' for x in value]
+                    out += f'"{key}"={",".join(values)};'
+                else:
+                    out += f'"{key}"="{value}";'
 
         if not out:
             return None
 
         return '@{' + out.rstrip(';') + '}'
 
-    def _build_args(self, attrs: dict[str, tuple[BaseObject.cli, any]], as_script: bool = True):
-        return super()._build_args(attrs, as_script=as_script)
+    def _build_args(
+        self,
+        attrs: dict[str, tuple[BaseObject.cli, any]],
+        as_script: bool = True,
+        admode: bool = True
+    ) -> list[str] | str:
+        return super()._build_args(attrs, as_script=as_script, admode=admode)
+
+
+class ADOrganizationalUnit(ADObject):
+    """
+    AD organizational unit management.
+    """
+
+    def __init__(self, role: AD, name: str, basedn: ADObject | str | None = None) -> None:
+        """
+        :param role: AD role object.
+        :type role: AD
+        :param name: Unit name.
+        :type name: str
+        :param basedn: Base dn, defaults to None
+        :type basedn: ADObject | str | None, optional
+        """
+        super().__init__(role, 'OrganizationalUnit', name, f'ou={name}', basedn)
+
+    def add(self) -> ADOrganizationalUnit:
+        """
+        Create new AD organizational unit.
+
+        :return: Self.
+        :rtype: ADOrganizationalUnit
+        """
+        attrs = {
+            'Name': (self.cli.VALUE, self.name),
+            'Path': (self.cli.VALUE, self.path),
+            'ProtectedFromAccidentalDeletion': (self.cli.PLAIN, '$False')
+        }
+
+        self._add(attrs)
+        return self
 
 
 class ADUser(ADObject):
@@ -161,14 +256,16 @@ class ADUser(ADObject):
     AD user management.
     """
 
-    def __init__(self, role: AD, name: str) -> None:
+    def __init__(self, role: AD, name: str, basedn: ADObject | str | None = 'cn=users') -> None:
         """
         :param role: AD role object.
         :type role: AD
         :param name: User name.
         :type name: str
+        :param basedn: Base dn, defaults to 'cn=users'
+        :type basedn: ADObject | str | None, optional
         """
-        super().__init__(role, 'user', name)
+        super().__init__(role, 'User', name, f'cn={name}', basedn)
 
     def add(
         self,
@@ -213,7 +310,8 @@ class ADUser(ADObject):
             'Name': (self.cli.VALUE, self.name),
             'AccountPassword': (self.cli.PLAIN, f'(ConvertTo-SecureString "{password}" -AsPlainText -force)'),
             'OtherAttributes': (self.cli.PLAIN, self._attrs_to_hash(unix_attrs)),
-            'Enabled': (self.cli.PLAIN, '$true')
+            'Enabled': (self.cli.PLAIN, '$True'),
+            'Path': (self.cli.VALUE, self.path),
         }
 
         self._add(attrs)
@@ -273,14 +371,16 @@ class ADGroup(ADObject):
     AD group management.
     """
 
-    def __init__(self, role: AD, name: str) -> None:
+    def __init__(self, role: AD, name: str, basedn: ADObject | str | None = 'cn=users') -> None:
         """
         :param role: AD role object.
         :type role: AD
         :param name: Group name.
         :type name: str
+        :param basedn: Base dn, defaults to 'cn=users'
+        :type basedn: ADObject | str | None, optional
         """
-        super().__init__(role, 'group', name)
+        super().__init__(role, 'Group', name, f'cn={name}', basedn)
 
     def add(
         self,
@@ -314,6 +414,7 @@ class ADGroup(ADObject):
             'GroupScope': (self.cli.VALUE, scope),
             'GroupCategory': (self.cli.VALUE, category),
             'OtherAttributes': (self.cli.PLAIN, self._attrs_to_hash(unix_attrs)),
+            'Path': (self.cli.VALUE, self.path),
         }
 
         self._add(attrs)
@@ -375,9 +476,9 @@ class ADGroup(ADObject):
         :return: Self.
         :rtype: ADGroup
         """
-        return self.role.host.exec(textwrap.dedent(f'''
+        self.role.host.exec(textwrap.dedent(f'''
             Import-Module ActiveDirectory
-            Add-ADGroupMember -Identity '{self.name}' -Members '{self.__get_members(members)}'
+            Add-ADGroupMember -Identity '{self.dn}' -Members {self.__get_members(members)}
         ''').strip())
         return self
 
@@ -401,11 +502,237 @@ class ADGroup(ADObject):
         :return: Self.
         :rtype: ADGroup
         """
-        return self.role.host.exec(textwrap.dedent(f'''
+        self.role.host.exec(textwrap.dedent(f'''
             Import-Module ActiveDirectory
-            Remove-ADGroupMember -Identity '{self.name}' -Members '{self.__get_members(members)}'
+            Remove-ADGroupMember -Confirm:$False -Identity '{self.dn}' -Members {self.__get_members(members)}
         ''').strip())
         return self
 
     def __get_members(self, members: list[ADUser | ADGroup]) -> str:
-        return ','.join([x.name for x in members])
+        return ','.join([f'"{x.dn}"' for x in members])
+
+
+class ADSudoRule(ADObject):
+    """
+    AD sudo rule management.
+    """
+
+    def __init__(
+        self,
+        role: AD,
+        name: str,
+        basedn: ADObject | str | None = None,
+    ) -> None:
+        """
+        :param role: AD role object.
+        :type role: AD
+        :param name: Sudo rule name.
+        :type name: str
+        :param basedn: Base dn, defaults to None
+        :type basedn: ADObject | str | None, optional
+        """
+        super().__init__(role, 'Object', name, f'cn={name}', basedn)
+
+    def add(
+        self,
+        *,
+        user: int | str | ADUser | ADGroup | list[int | str | ADUser | ADGroup] | None = None,
+        host: str | list[str] | None = None,
+        command: str | list[str] | None = None,
+        option: str | list[str] | None = None,
+        runasuser: int | str | ADUser | ADGroup | list[int | str | ADUser | ADGroup] | None = None,
+        runasgroup: int | str | ADGroup | list[int | str | ADGroup] | None = None,
+        notbefore: str | list[str] | None = None,
+        notafter: str | list[str] | None = None,
+        order: int | list[int] | None = None,
+        nopasswd: bool | None = None
+    ) -> ADSudoRule:
+        """
+        Create new sudo rule.
+
+        :param user: sudoUser attribute, defaults to None
+        :type user: int | str | ADUser | ADGroup | list[int | str | ADUser | ADGroup], optional
+        :param host: sudoHost attribute, defaults to None
+        :type host: str | list[str], optional
+        :param command: sudoCommand attribute, defaults to None
+        :type command: str | list[str], optional
+        :param option: sudoOption attribute, defaults to None
+        :type option: str | list[str] | None, optional
+        :param runasuser: sudoRunAsUser attribute, defaults to None
+        :type runasuser: int | str | ADUser | ADGroup | list[int | str | ADUser | ADGroup] | None, optional
+        :param runasgroup: sudoRunAsGroup attribute, defaults to None
+        :type runasgroup: int | str | ADGroup | list[int | str | ADGroup] | None, optional
+        :param notbefore: sudoNotBefore attribute, defaults to None
+        :type notbefore: str | list[str] | None, optional
+        :param notafter: sudoNotAfter attribute, defaults to None
+        :type notafter: str | list[str] | None, optional
+        :param order: sudoOrder attribute, defaults to None
+        :type order: int | list[int] | None, optional
+        :param nopasswd: If true, no authentication is required (NOPASSWD), defaults to None (no change)
+        :type nopasswd: bool | None, optional
+        :return: Self.
+        :rtype: ADSudoRule
+        """
+        attrs = {
+            'objectClass': 'sudoRole',
+            'sudoUser': self.__sudo_user(user),
+            'sudoHost': host,
+            'sudoCommand': command,
+            'sudoOption': option,
+            'sudoRunAsUser': self.__sudo_user(runasuser),
+            'sudoRunAsGroup': self.__sudo_group(runasgroup),
+            'sudoNotBefore': notbefore,
+            'sudoNotAfter': notafter,
+            'sudoOrder': order,
+        }
+
+        if nopasswd is True:
+            attrs['sudoOption'] = self._include_attr_value(attrs['sudoOption'], '!authenticate')
+        elif nopasswd is False:
+            attrs['sudoOption'] = self._include_attr_value(attrs['sudoOption'], 'authenticate')
+
+        args = {
+            'Name': (self.cli.VALUE, self.name),
+            'Type': (self.cli.VALUE, 'sudoRole'),
+            'OtherAttributes': (self.cli.PLAIN, self._attrs_to_hash(attrs)),
+            'Path': (self.cli.VALUE, self.path),
+        }
+
+        self._add(args)
+        return self
+
+    def modify(
+        self,
+        *,
+        user: int | str | ADUser | ADGroup | list[int | str | ADUser | ADGroup] | AD.Flags | None = None,
+        host: str | list[str] | AD.Flags | None = None,
+        command: str | list[str] | AD.Flags | None = None,
+        option: str | list[str] | AD.Flags | None = None,
+        runasuser: int | str | ADUser | ADGroup | list[int | str | ADUser | ADGroup] | AD.Flags | None = None,
+        runasgroup: int | str | ADGroup | list[int | str | ADGroup] | AD.Flags | None = None,
+        notbefore: str | list[str] | AD.Flags | None = None,
+        notafter: str | list[str] | AD.Flags | None = None,
+        order: int | list[int] | AD.Flags | None = None,
+        nopasswd: bool | None = None
+    ) -> ADSudoRule:
+        """
+        Modify existing sudo rule.
+
+        Parameters that are not set are ignored. If needed, you can delete an
+        attribute by setting the value to ``AD.Flags.DELETE``.
+
+        :param user: sudoUser attribute, defaults to None
+        :type user: int | str | ADUser | ADGroup | list[int | str | ADUser | ADGroup]
+          | AD.Flags | None, optional
+        :param host: sudoHost attribute, defaults to None
+        :type host: str | list[str] | AD.Flags | None, optional
+        :param command: sudoCommand attribute, defaults to None
+        :type command: str | list[str] | AD.Flags | None, optional
+        :param option: sudoOption attribute, defaults to None
+        :type option: str | list[str] | AD.Flags | None, optional
+        :param runasuser: sudoRunAsUsere attribute, defaults to None
+        :type runasuser: int | str | ADUser | ADGroup | list[int | str | ADUser | ADGroup]
+          | AD.Flags | None, optional
+        :param runasgroup: sudoRunAsGroup attribute, defaults to None
+        :type runasgroup: int | str | ADGroup | list[int | str | ADGroup] | AD.Flags | None, optional
+        :param notbefore: sudoNotBefore attribute, defaults to None
+        :type notbefore: str | list[str] | AD.Flags | None, optional
+        :param notafter: sudoNotAfter attribute, defaults to None
+        :type notafter: str | list[str] | AD.Flags | None, optional
+        :param order: sudoOrder attribute, defaults to None
+        :type order: int | list[int] | AD.Flags | None, optional
+        :param nopasswd: If true, no authentication is required (NOPASSWD), defaults to None (no change)
+        :type nopasswd: bool | None, optional
+        :return: Self.
+        :rtype: ADSudoRule
+        """
+        attrs = {
+            'sudoUser': self.__sudo_user(user),
+            'sudoHost': host,
+            'sudoCommand': command,
+            'sudoOption': option,
+            'sudoRunAsUser': self.__sudo_user(runasuser),
+            'sudoRunAsGroup': self.__sudo_group(runasgroup),
+            'sudoNotBefore': notbefore,
+            'sudoNotAfter': notafter,
+            'sudoOrder': order,
+        }
+
+        if nopasswd is True:
+            attrs['sudoOption'] = self._include_attr_value(attrs['sudoOption'], '!authenticate')
+        elif nopasswd is False:
+            attrs['sudoOption'] = self._include_attr_value(attrs['sudoOption'], 'authenticate')
+
+        clear = [key for key, value in attrs.items() if value == AD.Flags.DELETE]
+        replace = {key: value for key, value in attrs.items() if value is not None and value != AD.Flags.DELETE}
+
+        attrs = {
+            **self._identity,
+            'Replace': (self.cli.PLAIN, self._attrs_to_hash(replace)),
+            'Clear': (self.cli.PLAIN, ','.join(clear) if clear else None),
+        }
+
+        self._modify(attrs)
+        return self
+
+    def __sudo_user(
+        self,
+        sudo_user: None | AD.Flags | str | ADUser | ADGroup | list[str | ADUser | ADGroup]
+    ) -> list[str]:
+        def _get_value(value: str | ADUser | ADGroup):
+            if isinstance(value, ADUser):
+                return value.name
+
+            if isinstance(value, ADGroup):
+                return '%' + value.name
+
+            if isinstance(value, str):
+                return value
+
+            if isinstance(value, int):
+                return '#' + str(value)
+
+            raise ValueError(f'Unsupported type: {type(value)}')
+
+        if sudo_user is None:
+            return None
+
+        if isinstance(sudo_user, AD.Flags):
+            return sudo_user
+
+        if not isinstance(sudo_user, list):
+            return [_get_value(sudo_user)]
+
+        out = []
+        for value in sudo_user:
+            out.append(_get_value(value))
+
+        return out
+
+    def __sudo_group(self, sudo_group: None | AD.Flags | str | ADGroup | list[str | ADGroup]) -> list[str]:
+        def _get_value(value: str | ADGroup):
+            if isinstance(value, ADGroup):
+                return value.name
+
+            if isinstance(value, str):
+                return value
+
+            if isinstance(value, int):
+                return '#' + str(value)
+
+            raise ValueError(f'Unsupported type: {type(value)}')
+
+        if sudo_group is None:
+            return None
+
+        if isinstance(sudo_group, AD.Flags):
+            return sudo_group
+
+        if not isinstance(sudo_group, list):
+            return [_get_value(sudo_group)]
+
+        out = []
+        for value in sudo_group:
+            out.append(_get_value(value))
+
+        return out

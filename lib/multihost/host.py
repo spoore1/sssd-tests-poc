@@ -500,9 +500,7 @@ class ADHost(ProviderHost):
     """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, tls=False)
-
-        self.binddn = self.config.get('binddn', f'Administrator@{self.domain}')
+        super().__init__(*args, **kwargs)
 
         # Additional client configuration
         self.client.setdefault('id_provider', 'ad')
@@ -512,7 +510,10 @@ class ADHost(ProviderHost):
         self.client.setdefault('dyndns_update', False)
 
         # Backup of original data
-        self.__backup: bool = None
+        self.__backup: bool = False
+
+        # Lazy properties
+        self.__naming_context = None
 
     def exec(
         self,
@@ -588,6 +589,32 @@ class ADHost(ProviderHost):
 
         return RemoteCommandResult(command)
 
+    @property
+    def conn(self) -> ldap.ldapobject.LDAPObject:
+        """
+        It is recommended to use Powershell to manage Active Directory instead direct LDAP access due to issues with
+        TLS/SSL connections on Windows 2012 server. Trying to use this property will raise an Exception.
+        """
+        raise Exception('You should not talk with Active Directory through LDAP. Use Powershell instead.')
+
+    @property
+    def naming_context(self) -> str:
+        """
+        Default naming context.
+
+        :raises ValueError: If default naming context can not be obtained.
+        :rtype: str
+        """
+        if not self.__naming_context:
+            result = self.exec('Write-Host (Get-ADRootDSE).rootDomainNamingContext')
+            nc = result.stdout.strip()
+            if not nc:
+                raise ValueError('Unable to find default naming context')
+
+            self.__naming_context = nc
+
+        return self.__naming_context
+
     def backup(self) -> None:
         """
         Perform limited backup of the domain controller data. Currently only
@@ -596,11 +623,18 @@ class ADHost(ProviderHost):
         This is done by performing simple LDAP search on the base dn. This
         operation is usually very fast.
         """
-        if self.__backup is not None:
+        if self.__backup:
             return
 
-        data = self.conn.search_s(self.naming_context, ldap.SCOPE_SUBTREE)
-        self.__backup = self.ldap_result_to_dict(data)
+        self.exec(fr'''
+        Remove-Item C:\multihost_backup.txt
+        $result = Get-ADObject -SearchBase '{self.naming_context}' -Filter "*"
+        foreach ($r in $result) {{
+            $r.DistinguishedName | Add-Content -Path C:\multihost_backup.txt
+        }}
+        ''')
+
+        self.__backup = True
 
     def restore(self) -> None:
         """
@@ -609,19 +643,18 @@ class ADHost(ProviderHost):
         This is done by removing all records under ``$default_naming_context``
         that are not present in the original state.
         """
-        # Currently, only users container is supported.
-        data = self.conn.search_s(self.naming_context, ldap.SCOPE_SUBTREE)
 
-        # Convert list of tuples to dictionary for better lookup
-        data = self.ldap_result_to_dict(data)
-
-        # Modification of changed records or adding records that were deleted is
-        # not supported due to constrains of various attributes that cannot be
-        # written directly. Full AD backup restore is tedious and time consuming
-        # operation that require machine reboot thus not something we can use.
-
-        for dn in reversed(data.keys()):
-            # Delete records that were added
-            if dn not in self.__backup:
-                self.conn.delete_s(dn)
-                continue
+        self.exec(fr'''
+        $backup = Get-Content C:\multihost_backup.txt
+        $result = Get-ADObject -SearchBase '{self.naming_context}' -Filter "*"
+        foreach ($r in $result) {{
+            if (!$backup.contains($r.DistinguishedName)) {{
+                Write-Host "Removing: $r"
+                Try {{
+                   Remove-ADObject -Identity $r.DistinguishedName -Recursive -Confirm:$False
+                }} Catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {{
+                    # Ignore not found error as the object may have been deleted by recursion
+                }}
+            }}
+        }}
+        ''')

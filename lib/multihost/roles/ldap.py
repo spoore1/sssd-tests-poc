@@ -144,7 +144,7 @@ class LDAPObject(BaseObject):
         :type rdn: str
         :param basedn: Base DN, defaults to None
         :type basedn: LDAPObject | str | None, optional
-        :return: Distinguished name combind from rdn+dn+naming-context.
+        :return: Distinguished name combined from rdn+dn+naming-context.
         :rtype: str
         """
         if isinstance(basedn, LDAPObject):
@@ -739,7 +739,7 @@ class LDAPSudoRule(LDAPObject):
         return out
 
     def __sudo_group(self, sudo_group: None | LDAP.Flags | str | LDAPGroup | list[str | LDAPGroup]) -> list[str]:
-        def _get_value(value: str | LDAPUser | LDAPGroup):
+        def _get_value(value: str | LDAPGroup):
             if isinstance(value, self.role._group_cls):
                 return value.name
 

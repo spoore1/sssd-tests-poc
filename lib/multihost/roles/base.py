@@ -110,7 +110,12 @@ class BaseObject(object):
         """
         self._cli_prefix = cli_prefix
 
-    def _build_args(self, attrs: dict[str, tuple[BaseObject.cli, any]], as_script: bool = False) -> list[str] | str:
+    def _build_args(
+        self,
+        attrs: dict[str, tuple[BaseObject.cli, any]],
+        as_script: bool = False,
+        admode: bool = False
+    ) -> list[str] | str:
         """
         Build command line arguments.
 
@@ -153,8 +158,13 @@ class BaseObject(object):
                 args.append(encode_value(value))
                 continue
 
-            if type is self.cli.SWITCH and value is True:
-                args.append(self._cli_prefix + key)
+            if type is self.cli.SWITCH:
+                if not admode:
+                    if value is True:
+                        args.append(self._cli_prefix + key)
+                else:
+                    # Active Directory switch style, e.g. -Confirm:$False
+                    args.append(f'{self._cli_prefix}{key}:{"$True" if value else "$False"}')
                 continue
 
             if type is self.cli.VALUE:
