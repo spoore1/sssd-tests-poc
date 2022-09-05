@@ -40,6 +40,18 @@ class GenericProvider(ABC, BaseRole):
         """
         pass
 
+    @abstractmethod
+    def sudorule(self, name: str) -> GenericSudoRule:
+        """
+        Get sudo rule object.
+
+        :param name: Sudo rule name.
+        :type name: str
+        :return: New sudo rule object.
+        :rtype: GenericSudoRule
+        """
+        pass
+
 
 class GenericADProvider(GenericProvider):
     """
@@ -257,5 +269,104 @@ class GenericGroup(ABC, BaseObject):
         :type member: list[GenericUser | GenericGroup]
         :return: Self.
         :rtype: GenericGroup
+        """
+        pass
+
+
+class GenericSudoRule(ABC, BaseObject):
+    """
+    Generic sudo rule management.
+    """
+
+    @abstractmethod
+    def add(
+        self,
+        *,
+        user: str | GenericUser | GenericGroup | list[str | GenericUser | GenericGroup] | None = None,
+        host: str | list[str] | None = None,
+        command: str | list[str] | None = None,
+        option: str | list[str] | None = None,
+        runasuser: str | GenericUser | GenericGroup | list[str | GenericUser | GenericGroup] | None = None,
+        runasgroup: str | GenericGroup | list[str | GenericGroup] | None = None,
+        order: int | None = None,
+        nopasswd: bool | None = None
+    ) -> GenericSudoRule:
+        """
+        Create new sudo rule.
+
+        :param user: sudoUser attribute, defaults to None
+        :type user: str | GenericUser | GenericGroup | list[str  |  GenericUser  |  GenericGroup] | None, optional
+        :param host: sudoHost attribute, defaults to None
+        :type host: str | list[str] | None, optional
+        :param command: sudoCommand attribute, defaults to None
+        :type command: str | list[str] | None, optional
+        :param option: sudoOption attribute, defaults to None
+        :type option: str | list[str] | None, optional
+        :param runasuser: sudoRunAsUser attribute, defaults to None
+        :type runasuser: str | GenericUser | GenericGroup | list[str  |  GenericUser  |  GenericGroup] | None, optional
+        :param runasgroup: sudoRunAsGroup attribute, defaults to None
+        :type runasgroup: str | GenericGroup | list[str  |  GenericGroup] | None, optional
+        :param order: sudoOrder attribute, defaults to None
+        :type order: int | None, optional
+        :param nopasswd: If true, no authentication is required (NOPASSWD), defaults to None (no change)
+        :type nopasswd: bool | None, optional
+        :return: _description_
+        :rtype: GenericSudoRule
+        """
+        pass
+
+    @abstractmethod
+    def modify(
+        self,
+        *,
+        user: str | GenericUser | GenericGroup | list[str | GenericUser | GenericGroup] | None = None,
+        host: str | list[str] | None = None,
+        command: str | list[str] | None = None,
+        option: str | list[str] | None = None,
+        runasuser: str | GenericUser | GenericGroup | list[str | GenericUser | GenericGroup] | None = None,
+        runasgroup: str | GenericGroup | list[str | GenericGroup] | None = None,
+        order: int | None = None,
+        nopasswd: bool | None = None
+    ) -> GenericSudoRule:
+        """
+        Create new sudo rule.
+
+        :param user: sudoUser attribute, defaults to None
+        :type user: str | GenericUser | GenericGroup | list[str  |  GenericUser  |  GenericGroup] | None, optional
+        :param host: sudoHost attribute, defaults to None
+        :type host: str | list[str] | None, optional
+        :param command: sudoCommand attribute, defaults to None
+        :type command: str | list[str] | None, optional
+        :param option: sudoOption attribute, defaults to None
+        :type option: str | list[str] | None, optional
+        :param runasuser: sudoRunAsUser attribute, defaults to None
+        :type runasuser: str | GenericUser | GenericGroup | list[str  |  GenericUser  |  GenericGroup] | None, optional
+        :param runasgroup: sudoRunAsGroup attribute, defaults to None
+        :type runasgroup: str | GenericGroup | list[str  |  GenericGroup] | None, optional
+        :param order: sudoOrder attribute, defaults to None
+        :type order: int | None, optional
+        :param nopasswd: If true, no authentication is required (NOPASSWD), defaults to None (no change)
+        :type nopasswd: bool | None, optional
+        :return: _description_
+        :rtype: GenericSudoRule
+        """
+        pass
+
+    @abstractmethod
+    def delete(self) -> None:
+        """
+        Delete the sudo rule.
+        """
+        pass
+
+    @abstractmethod
+    def get(self, attrs: list[str] | None = None) -> dict[str, list[str]]:
+        """
+        Get sudo rule attributes.
+
+        :param attrs: If set, only requested attributes are returned, defaults to None
+        :type attrs: list[str] | None, optional
+        :return: Dictionary with attribute name as a key.
+        :rtype: dict[str, list[str]]
         """
         pass
