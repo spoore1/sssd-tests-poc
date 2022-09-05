@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from lib.multihost import KnownTopology, Multihost, Topology, TopologyDomain
+from lib.multihost import KnownTopology, KnownTopologyGroup, Multihost, Topology, TopologyDomain
 from lib.multihost.roles import AD, IPA, LDAP, Client, GenericADProvider, GenericProvider, Samba
 
 
@@ -249,7 +249,7 @@ def test_sudo(client: Client, provider: LDAP):
     client.sssd.enable_responder('sudo')
     client.sssd.start()
     assert client.auth.sudo.list(u.name, 'Secret123')
-    assert client.auth.sudo.run('test', command='/bin/ls')
+    assert client.auth.sudo.run('test', 'Secret123', command='/bin/ls')
 
 
 @pytest.mark.topology(KnownTopology.Samba)
@@ -257,7 +257,6 @@ def test_samba_ou(client: Client, samba: Samba):
     print(samba.ldap.naming_context)
     samba.ou('test').add()
     samba.sudorule('testrule').add(user='ALL', host='ALL', command='/bin/ls')
-    input()
 
 
 @pytest.mark.topology(KnownTopology.AD)
@@ -265,9 +264,7 @@ def test_ad_ou(client: Client, ad: AD):
     ou = ad.ou('sudoers').add()
     u = ad.user('tuser').add()
     r = ad.sudorule('test', ou).add(user=u, host='ALL', command='ALL')
-    input()
     r.modify(user='ALL', host=ad.Flags.DELETE)
-    input()
     # ad.sudorule('test', basedn=ou).add(user='ALL', host='ALL', command='ALL')
     # ad.user('tuser').add()
 

@@ -121,7 +121,7 @@ class MultihostPlugin(object):
                 continue
 
             has_marks = False
-            for mark in result.iter_markers('topology'):
+            for mark in TopologyMark.ExpandMarkers(result):
                 has_marks = True
                 topology_mark = TopologyMark.Create(result, mark)
                 f = self._clone_function(f'{result.name} ({topology_mark.name})', result)

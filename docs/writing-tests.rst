@@ -358,6 +358,25 @@ second time with ``mockvalue=2``.
     tests/test_basic.py::test_example[2] (ldap) PASSED
     ...
 
+.. note::
+
+    The previous examples can be made shorter by using
+    :class:`lib.multihost.KnownTopologyGroup`, which groups multiple topologies
+    together so they can be used in parametrization. For example:
+
+    .. code-block:: python
+        :emphasize-lines: 7
+
+        import pytest
+
+        from lib.multihost import KnownTopologyGroup
+        from lib.multihost.roles import Client, LDAP
+
+        @pytest.mark.parametrize('mockvalue', [1, 2])
+        @pytest.mark.topology(KnownTopologyGroup.AnyProvider)
+        def test_example(client: Client, provider: GenericProvider, mockvalue: int):
+            assert True
+
 .. seealso::
 
     This article explained how to define a new test case and integrate it with

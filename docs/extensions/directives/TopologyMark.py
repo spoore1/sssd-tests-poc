@@ -3,7 +3,7 @@ from __future__ import annotations
 import yaml
 from sphinx.directives.code import CodeBlock
 
-from lib.multihost import KnownTopology
+from lib.multihost import KnownTopology, KnownTopologyGroup
 from lib.multihost.plugin.marks import TopologyMark
 
 
@@ -13,21 +13,26 @@ class TopologyMarkDirective(CodeBlock):
     """
 
     def run(self):
-        x = eval(self.arguments[0])
-
-        if isinstance(x, KnownTopology):
-            x = x.value
-
-        if not isinstance(x, TopologyMark):
+        obj = eval(self.arguments[0])
+        if isinstance(obj, KnownTopology):
+            self.content = self.export(obj.value)
+        elif isinstance(obj, KnownTopologyGroup):
+            out = []
+            for known_topology in obj.value:
+                out += self.export(known_topology.value) + ['']
+            self.content = out
+        elif isinstance(obj, TopologyMark):
+            self.content = self.export(obj)
+        else:
             raise ValueError(f'Invalid argument: {self.arguments[0]}')
 
         # Set language
         self.arguments[0] = 'yaml'
 
-        # Set content
-        self.content = yaml.dump(x.export(), sort_keys=False).splitlines()
-
         return super().run()
+
+    def export(self, x: TopologyMark) -> list[str]:
+        return yaml.dump(x.export(), sort_keys=False).splitlines()
 
 
 def setup(app):

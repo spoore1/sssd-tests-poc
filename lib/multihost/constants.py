@@ -71,3 +71,30 @@ class KnownTopology(Enum):
     """
     .. topology-mark:: KnownTopology.Samba
     """
+
+
+class KnownTopologyGroup(Enum):
+    """
+    Groups of well-known topologies that can be given to ``pytest.mark.topology``
+    directly. It it expected to use these values in favor of providing
+    custom marker values.
+
+    The test is parametrized and runs multiple times, once per each topology.
+
+    .. code-block:: python
+        :caption: Example usage (runs on AD, IPA, LDAP and Samba topology)
+
+        @pytest.mark.topology(KnownTopologyGroup.AnyProvider)
+        def test_ldap(client: Client, provider: GenericProvider):
+            assert True
+    """
+
+    AnyProvider = [KnownTopology.AD, KnownTopology.IPA, KnownTopology.LDAP, KnownTopology.Samba]
+    """
+    .. topology-mark:: KnownTopologyGroup.AnyProvider
+    """
+
+    AnyAD = [KnownTopology.AD, KnownTopology.Samba]
+    """
+    .. topology-mark:: KnownTopologyGroup.AnyAD
+    """

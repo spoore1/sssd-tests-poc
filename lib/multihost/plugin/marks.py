@@ -117,6 +117,20 @@ class TopologyMark(object):
         }
 
     @classmethod
+    def ExpandMarkers(cls, item: pytest.Item) -> list[pytest.Mark]:
+        out = []
+        for mark in item.iter_markers('topology'):
+            # We need to use generic classes in order to avoid circular import
+            if isinstance(mark.args[0], Enum) and isinstance(mark.args[0].value, list):
+                for topology in mark.args[0].value:
+                    out.append(pytest.mark.topology(topology))
+                continue
+
+            out.append(mark)
+
+        return out
+
+    @classmethod
     def Create(cls, item: pytest.Item, mark: pytest.Mark) -> 'TopologyMark':
         """
         Create instance of :class:`TopologyMark` from ``@pytest.mark.topology``.
