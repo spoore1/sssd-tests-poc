@@ -24,6 +24,7 @@ class LDAP(LinuxRole):
         self.ldap: HostLDAP = HostLDAP(host)
         self.auto_uid: int = 23000
         self.auto_gid: int = 33000
+        self.auto_ou: dict[str, bool] = {}
 
     def setup(self) -> None:
         """
@@ -76,26 +77,26 @@ class LDAP(LinuxRole):
         """
         return LDAPOrganizationalUnit(self, name, basedn)
 
-    def user(self, name: str, basedn: LDAPObject | str | None = None) -> LDAPUser:
+    def user(self, name: str, basedn: LDAPObject | str | None = 'ou=users') -> LDAPUser:
         """
         Get user object.
 
         :param name: User name.
         :type name: str
-        :param basedn: Base dn, defaults to None
+        :param basedn: Base dn, defaults to ``ou=users``
         :type basedn: LDAPObject | str | None, optional
         :return: New user object.
         :rtype: LDAPUser
         """
         return LDAPUser(self, name, basedn)
 
-    def group(self, name: str, basedn: LDAPObject | str | None = None, *, rfc2307bis: bool = False) -> LDAPGroup:
+    def group(self, name: str, basedn: LDAPObject | str | None = 'ou=groups', *, rfc2307bis: bool = False) -> LDAPGroup:
         """
         Get user object.
 
         :param name: Group name.
         :type name: str
-        :param basedn: Base dn, defaults to None
+        :param basedn: Base dn, defaults to ``ou=groups``
         :type basedn: LDAPObject | str | None, optional
         :param rfc2307bis: If True, rfc2307bis schema is used, defaults to False
         :type rfc2307bis: bool, optional
@@ -105,13 +106,13 @@ class LDAP(LinuxRole):
 
         return LDAPGroup(self, name, basedn, rfc2307bis=rfc2307bis)
 
-    def sudorule(self, name: str, basedn: LDAPObject | str | None = None) -> LDAPSudoRule:
+    def sudorule(self, name: str, basedn: LDAPObject | str | None = 'ou=sudoers') -> LDAPSudoRule:
         """
         Get sudo rule object.
 
         :param name: Rule name.
         :type name: str
-        :param basedn: Base dn, defaults to None
+        :param basedn: Base dn, defaults to ``ou=sudoers``
         :type basedn: LDAPObject | str | None, optional
         :return: New sudo rule object.
         :rtype: LDAPSudoRule
@@ -121,7 +122,13 @@ class LDAP(LinuxRole):
 
 
 class LDAPObject(BaseObject):
-    def __init__(self, role: LDAP, rdn: str, basedn: LDAPObject | str | None = None) -> None:
+    def __init__(
+        self,
+        role: LDAP,
+        rdn: str,
+        basedn: LDAPObject | str | None = None,
+        default_ou: str | None = None
+    ) -> None:
         """
         :param role: LDAP role object.
         :type role: LDAP
@@ -129,12 +136,28 @@ class LDAPObject(BaseObject):
         :type rdn: str
         :param basedn: Base dn, defaults to None
         :type basedn: LDAPObject | str | None, optional
+        :param default_ou: Name of default organizational unit that is automatically
+                           created if basedn is set to ou=$default_ou, defaults to None.
+        :type default_ou: str | None, optional
         """
         super().__init__()
         self.role = role
         self.rdn = rdn
         self.basedn = basedn
         self.dn = self._dn(rdn, basedn)
+        self.default_ou = default_ou
+
+        self.__create_default_ou(basedn, self.default_ou)
+
+    def __create_default_ou(self, basedn: LDAPObject | str | None, default_ou: str | None) -> None:
+        if basedn is None or not isinstance(basedn, str):
+            return
+
+        if basedn.lower() != f'ou={default_ou}' or default_ou in self.role.auto_ou:
+            return
+
+        self.role.ou(default_ou).add()
+        self.role.auto_ou[default_ou] = True
 
     def _dn(self, rdn: str, basedn: LDAPObject | str | None = None) -> str:
         """
@@ -278,16 +301,16 @@ class LDAPUser(LDAPObject):
     LDAP user management.
     """
 
-    def __init__(self, role: LDAP, name: str, basedn: LDAPObject | str | None = None) -> None:
+    def __init__(self, role: LDAP, name: str, basedn: LDAPObject | str | None = 'ou=users') -> None:
         """
         :param role: LDAP role object.
         :type role: LDAP
         :param name: User name.
         :type name: str
-        :param basedn: Base dn, defaults to None
+        :param basedn: Base dn, defaults to ``ou=users``
         :type basedn: LDAPObject | str | None, optional
         """
-        super().__init__(role, f'cn={name}', basedn)
+        super().__init__(role, f'cn={name}', basedn, default_ou='users')
         self.name = name
 
     def add(
@@ -395,7 +418,7 @@ class LDAPGroup(LDAPObject):
         self,
         role: LDAP,
         name: str,
-        basedn: LDAPObject | str | None = None,
+        basedn: LDAPObject | str | None = 'ou=groups',
         *,
         rfc2307bis: bool = False
     ) -> None:
@@ -404,12 +427,12 @@ class LDAPGroup(LDAPObject):
         :type role: LDAP
         :param name: Group name.
         :type name: str
-        :param basedn: Base dn, defaults to None
+        :param basedn: Base dn, defaults to ``ou=groups``
         :type basedn: LDAPObject | str | None, optional
         :param rfc2307bis: If True, rfc2307bis schema is used, defaults to False
         :type rfc2307bis: bool, optional
         """
-        super().__init__(role, f'cn={name}', basedn)
+        super().__init__(role, f'cn={name}', basedn, default_ou='groups')
         self.name = name
         self.rfc2307bis = rfc2307bis
 
@@ -562,17 +585,17 @@ class LDAPSudoRule(LDAPObject):
         self,
         role: LDAP,
         name: str,
-        basedn: LDAPObject | str | None = None,
+        basedn: LDAPObject | str | None = 'ou=sudoers',
     ) -> None:
         """
         :param role: LDAP role object.
         :type role: LDAP
         :param name: Sudo rule name.
         :type name: str
-        :param basedn: Base dn, defaults to None
+        :param basedn: Base dn, defaults to ``ou=sudoers``
         :type basedn: LDAPObject | str | None, optional
         """
-        super().__init__(role, f'cn={name}', basedn)
+        super().__init__(role, f'cn={name}', basedn, default_ou='sudoers')
         self.name = name
 
     def add(

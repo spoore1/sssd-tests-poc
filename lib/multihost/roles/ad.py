@@ -20,6 +20,7 @@ class AD(WindowsRole):
     def __init__(self, mh: Multihost, role: str, host: ADHost) -> None:
         super().__init__(mh, role, host, user_cls=ADUser, group_cls=ADGroup)
         self.ldap: HostLDAP = HostLDAP(host)
+        self.auto_ou: dict[str, bool] = {}
 
     def setup(self) -> None:
         """
@@ -45,7 +46,7 @@ class AD(WindowsRole):
 
         :param name: User name.
         :type name: str
-        :param basedn: Base dn, defaults to 'cn=users'
+        :param basedn: Base dn, defaults to ``cn=users``
         :type basedn: ADObject | str | None, optional
         :return: New user object.
         :rtype: ADUser
@@ -58,7 +59,7 @@ class AD(WindowsRole):
 
         :param name: Group name.
         :type name: str
-        :param basedn: Base dn, defaults to 'cn=users'
+        :param basedn: Base dn, defaults to ``cn=users``
         :type basedn: ADObject | str | None, optional
         :return: New group object.
         :rtype: ADGroup
@@ -78,13 +79,13 @@ class AD(WindowsRole):
         """
         return ADOrganizationalUnit(self, name, basedn)
 
-    def sudorule(self, name: str, basedn: ADObject | str | None = None) -> ADSudoRule:
+    def sudorule(self, name: str, basedn: ADObject | str | None = 'ou=sudoers') -> ADSudoRule:
         """
         Get sudo rule object.
 
         :param name: Rule name.
         :type name: str
-        :param basedn: Base dn, defaults to None
+        :param basedn: Base dn, defaults to ``ou=sudoers``
         :type basedn: ADObject | str | None, optional
         :return: New sudo rule object.
         :rtype: ADSudoRule
@@ -98,7 +99,15 @@ class ADObject(BaseObject):
     Base AD object class.
     """
 
-    def __init__(self, role: AD, command_group: str, name: str, rdn: str, basedn: ADObject | str | None = None) -> None:
+    def __init__(
+        self,
+        role: AD,
+        command_group: str,
+        name: str,
+        rdn: str,
+        basedn: ADObject | str | None = None,
+        default_ou: str | None = None
+    ) -> None:
         """
         :param role: AD role object.
         :type role: AD
@@ -110,6 +119,9 @@ class ADObject(BaseObject):
         :type rdn: str
         :param basedn: Base dn, defaults to None
         :type basedn: ADObject | str | None, optional
+        :param default_ou: Name of default organizational unit that is automatically
+                           created if basedn is set to ou=$default_ou, defaults to None.
+        :type default_ou: str | None, optional
         """
         super().__init__(cli_prefix='-')
 
@@ -120,7 +132,20 @@ class ADObject(BaseObject):
         self.basedn = basedn
         self.dn = self._dn(rdn, basedn)
         self.path = self._path(basedn)
+        self.default_ou = default_ou
         self._identity = {'Identity': (self.cli.VALUE, self.dn)}
+
+        self.__create_default_ou(basedn, self.default_ou)
+
+    def __create_default_ou(self, basedn: ADObject | str | None, default_ou: str | None) -> None:
+        if basedn is None or not isinstance(basedn, str):
+            return
+
+        if basedn.lower() != f'ou={default_ou}' or default_ou in self.role.auto_ou:
+            return
+
+        self.role.ou(default_ou).add()
+        self.role.auto_ou[default_ou] = True
 
     def _dn(self, rdn: str, basedn: ADObject | str | None = None) -> str:
         """
@@ -144,7 +169,7 @@ class ADObject(BaseObject):
 
         :param basedn: Base DN, defaults to None
         :type basedn: ADObject | str | None, optional
-        :return: Distinguished name combined from basedn+naming-context.
+        :return: Distinguished name of the parent container combined from basedn+naming-context.
         :rtype: str
         """
         if isinstance(basedn, ADObject):
@@ -265,7 +290,8 @@ class ADUser(ADObject):
         :param basedn: Base dn, defaults to 'cn=users'
         :type basedn: ADObject | str | None, optional
         """
-        super().__init__(role, 'User', name, f'cn={name}', basedn)
+        # There is no automatically created default ou because cn=users already exists
+        super().__init__(role, 'User', name, f'cn={name}', basedn, default_ou=None)
 
     def add(
         self,
@@ -380,7 +406,8 @@ class ADGroup(ADObject):
         :param basedn: Base dn, defaults to 'cn=users'
         :type basedn: ADObject | str | None, optional
         """
-        super().__init__(role, 'Group', name, f'cn={name}', basedn)
+        # There is no automatically created default ou because cn=users already exists
+        super().__init__(role, 'Group', name, f'cn={name}', basedn, default_ou=None)
 
     def add(
         self,
@@ -521,7 +548,7 @@ class ADSudoRule(ADObject):
         self,
         role: AD,
         name: str,
-        basedn: ADObject | str | None = None,
+        basedn: ADObject | str | None = 'ou=sudoers',
     ) -> None:
         """
         :param role: AD role object.
@@ -531,7 +558,7 @@ class ADSudoRule(ADObject):
         :param basedn: Base dn, defaults to None
         :type basedn: ADObject | str | None, optional
         """
-        super().__init__(role, 'Object', name, f'cn={name}', basedn)
+        super().__init__(role, 'Object', name, f'cn={name}', basedn, default_ou='sudoers')
 
     def add(
         self,
