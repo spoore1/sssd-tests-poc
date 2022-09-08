@@ -98,16 +98,16 @@ implemented.
         # Add user to the group
         group.add_member(user)
 
-   @pytest.mark.topology(KnownTopology.AD)
-   @pytest.mark.topology(KnownTopology.IPA)
-   @pytest.mark.topology(KnownTopology.LDAP)
-   @pytest.mark.topology(KnownTopology.Samba)
+    @pytest.mark.topology(KnownTopology.AD)
+    @pytest.mark.topology(KnownTopology.IPA)
+    @pytest.mark.topology(KnownTopology.LDAP)
+    @pytest.mark.topology(KnownTopology.Samba)
     def test_generic(provider: GenericProvider):
        # Create user
-       user = generic.user('user-1').add()
+       user = provider.user('user-1').add()
 
        # Create group
-       group = generic.group('group-1').add()
+       group = provider.group('group-1').add()
 
        # Add user to the group
        group.add_member(user)

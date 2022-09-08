@@ -280,7 +280,7 @@ a single test.
     import pytest
 
     from lib.multihost import KnownTopology
-    from lib.multihost.roles import Client, LDAP
+    from lib.multihost.roles import Client, GenericProvider
 
     @pytest.mark.topology(KnownTopology.LDAP)
     @pytest.mark.topology(KnownTopology.IPA)
@@ -330,7 +330,7 @@ multiple values.
     import pytest
 
     from lib.multihost import KnownTopology
-    from lib.multihost.roles import Client, LDAP
+    from lib.multihost.roles import Client, GenericProvider
 
     @pytest.mark.parametrize('mockvalue', [1, 2])
     @pytest.mark.topology(KnownTopology.LDAP)
@@ -370,7 +370,7 @@ second time with ``mockvalue=2``.
         import pytest
 
         from lib.multihost import KnownTopologyGroup
-        from lib.multihost.roles import Client, LDAP
+        from lib.multihost.roles import Client, GenericProvider
 
         @pytest.mark.parametrize('mockvalue', [1, 2])
         @pytest.mark.topology(KnownTopologyGroup.AnyProvider)
