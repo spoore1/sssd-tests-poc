@@ -9,6 +9,7 @@ domains:
       artifacts:
       - /etc/sssd/*
       - /var/log/sssd/*
+      - /var/lib/sss/db/*
 
   - hostname: master.ldap.test
     role: ldap

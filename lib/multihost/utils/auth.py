@@ -33,6 +33,24 @@ class HostAuthentication(MultihostUtility):
         Interface to ssh command.
         """
 
+    def parametrize(self, method: str) -> HostSU | HostSSH:
+        """
+        Return authentication tool based on the method. The method can be
+        either ``su`` or ``ssh``.
+
+        :param method: ``su`` or ``ssh``
+        :type method: str
+        :raises ValueError: If invalid method is specified.
+        :return: Authentication tool.
+        :rtype: HostSU | HostSSH
+        """
+
+        allowed = ['su', 'ssh']
+        if method not in allowed:
+            raise ValueError(f'Unknown method {method}, choose from {allowed}.')
+
+        return getattr(self, method)
+
 
 class AuthBase(MultihostUtility):
     """
@@ -136,7 +154,7 @@ class HostSSH(AuthBase):
 
             expect {{
                 -re $prompt {{puts "expect result: Password authentication successful"; exit 0}}
-                "Permission denied" {{puts "expect result: Authentication failure"; exit 4}}
+                "{username}@localhost: Permission denied" {{puts "expect result: Authentication failure"; exit 4}}
                 timeout {{puts "expect result: Unexpected su output"; exit 1}}
                 eof {{puts "expect result: Unexpected end of file"; exit 2}}
             }}
@@ -170,7 +188,7 @@ class HostSudo(AuthBase):
 
         return result.rc == 0
 
-    def list(self, username: str, password: str = None, expected: list[str] = None) -> bool:
+    def list(self, username: str, password: str = None, *, expected: list[str] = None) -> bool:
         """
         List commands that the user can run under sudo.
 

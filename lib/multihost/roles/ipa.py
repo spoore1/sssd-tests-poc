@@ -425,16 +425,17 @@ class IPASudoRule(IPAObject):
         self.role.host.exec(f'ipa sudorule-add "{self.name}" {args}')
 
         # Allow and deny commands through command groups
-        self.role.host.exec(f'ipa sudorule-add-allow-command "{self.name}" "--sudocmdgroups={self.name}_allow"')
-        self.role.host.exec(f'ipa sudorule-add-deny-command "{self.name}" "--sudocmdgroups={self.name}_deny"')
+        if not cmdcat:
+            self.role.host.exec(f'ipa sudorule-add-allow-command "{self.name}" "--sudocmdgroups={self.name}_allow"')
+            self.role.host.exec(f'ipa sudorule-add-deny-command "{self.name}" "--sudocmdgroups={self.name}_deny"')
 
         # Add hosts
         args = self.__args_from_list('hosts', hosts)
         self.__exec_with_args('sudorule-add-host', self.name, args)
 
         # Add options
-        args = self.__args_from_list('option', hosts)
-        self.__exec_with_args('sudorule-add-option', self.name, args)
+        for opt in options:
+            self.role.host.exec(f'ipa sudorule-add-option "{self.name}" "--sudooption={opt}"')
 
         # Add run as user
         args_users = self.__args_from_list('users', runasuser_users)
