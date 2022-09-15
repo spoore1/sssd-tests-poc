@@ -1,4 +1,4 @@
-jc
+git+https://github.com/pbrezina/jc@id#egg=jc
 pytest
 pytest_multihost
 python-ldap

@@ -30,6 +30,7 @@ project = 'sssd'
 extensions = [
     # 'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
+    'sphinx_design',
     'autoapi.extension',
     'extensions.directives.TopologyMark',
 ]

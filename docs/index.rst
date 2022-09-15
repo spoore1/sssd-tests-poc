@@ -7,4 +7,5 @@ sssd - writing tests
    running-tests
    writing-tests
    guides/index
+   course
    api

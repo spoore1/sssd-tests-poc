@@ -36,11 +36,10 @@ various channels. The class can be accessed from the ``client`` fixture as
         @pytest.mark.topology(KnownTopology.LDAP)
         @pytest.mark.parametrize('method', ['su', 'ssh'])
         def test_auth(client: Client, ldap: LDAP, method: str):
-            auth_tool = client.auth.su if method == 'su' else client.auth.ssh
             ldap.user('test').add(password="Secret123")
 
             client.sssd.start()
-            assert auth_tool.password('test', 'Secret123')
+            assert client.auth.parametrize(method).password('test', 'Secret123')
 
 .. code-block:: python
     :caption: Test sudo -l
