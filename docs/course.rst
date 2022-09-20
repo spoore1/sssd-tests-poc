@@ -66,6 +66,17 @@ installation.
     $ sudo podman exec client cp /etc/krb5.keytab /enrollment/ad.keytab
     $ sudo podman exec client rm /etc/krb5.keytab
 
+Setup tests POC repo
+====================
+
+.. code-block:: text
+
+    $ git clone https://github.com/pbrezina/sssd-tests-poc.git
+    $ cd sssd-tests-poc
+    $ python3 -m venv .venv
+    $ source .venv/bin/activate
+    $ pip3 install -r ./requirements.txt
+
 Is everything working?
 ======================
 
