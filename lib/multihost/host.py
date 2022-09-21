@@ -6,12 +6,16 @@ import ldap
 import ldap.ldapobject
 import ldap.modlist
 from pytest_multihost.host import Host as pytest_multihost_Host
+from pytest_multihost.transport import OpenSSHTransport
 from pytest_multihost.transport import SSHCommand as pytest_SSHCommand
 
 from .command import RemoteCommandResult
 
 if TYPE_CHECKING:
     from .config import MultihostDomain
+
+# Always use OpenSSHTransport
+pytest_multihost_Host.transport_class = OpenSSHTransport
 
 
 class BaseHost(object):
