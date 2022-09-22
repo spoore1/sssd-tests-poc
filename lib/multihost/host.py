@@ -249,15 +249,16 @@ class ProviderHost(BaseHost):
         :rtype: ldap.ldapobject.LDAPObject
         """
         if not self.__conn:
-            self.__conn = ldap.initialize(self.uri)
-            self.__conn.protocol_version = ldap.VERSION3
-            self.__conn.set_option(ldap.OPT_REFERRALS, 0)
+            newconn = ldap.initialize(self.uri)
+            newconn.protocol_version = ldap.VERSION3
+            newconn.set_option(ldap.OPT_REFERRALS, 0)
 
             if self.tls:
-                self.__conn.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
-                self.__conn.start_tls_s()
+                newconn.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
+                newconn.start_tls_s()
 
-            self.__conn.simple_bind_s(self.binddn, self.bindpw)
+            newconn.simple_bind_s(self.binddn, self.bindpw)
+            self.__conn = newconn
 
         return self.__conn
 

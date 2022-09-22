@@ -111,9 +111,18 @@ class Multihost(object):
         Setup multihost. A setup method is called on each host to initialize the
         host to expected state.
         """
+        setup_ok: list[BaseRole] = []
         for role in self._paths.values():
             if isinstance(role, BaseRole):
-                role.setup()
+                try:
+                    role.setup()
+                except Exception:
+                    # Teardown roles that were successfully setup
+                    for r in reversed(setup_ok):
+                        r.teardown()
+                    raise
+
+                setup_ok.append(role)
 
     def _teardown(self) -> None:
         """
