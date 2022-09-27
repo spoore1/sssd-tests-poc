@@ -42,6 +42,9 @@ installation.
 .. code-block:: text
 
     $ sudo dnf remove -y vagrant
+    $ sudo dnf install -y libvirt qemu-kvm
+    $ sudo systemctl start libvirtd
+
     # Add the following to ~/.bashrc and ‘source ~/.bashrc’
     function vagrant {
     dir="${VAGRANT_HOME:-$HOME/.vagrant.d}"
@@ -60,13 +63,14 @@ installation.
         quay.io/sssd/vagrant:latest \
         vagrant $@
     }
+
     $ cd sssd-ci-containers/src
     $ vagrant up
     $ sudo podman exec client bash -c "echo vagrant | realm join ad.test"
     $ sudo podman exec client cp /etc/krb5.keytab /enrollment/ad.keytab
     $ sudo podman exec client rm /etc/krb5.keytab
 
-Setup tests POC repo
+Setup tests PoC repo
 ====================
 
 .. code-block:: text
@@ -75,12 +79,22 @@ Setup tests POC repo
     $ cd sssd-tests-poc
     $ python3 -m venv .venv
     $ source .venv/bin/activate
+    $ sudo dnf install -y gcc python3-devel openldap-devel sshpass
     $ pip3 install -r ./requirements.txt
+
+.. warning::
+
+    You need to use pytest-multihost package from pip and not from Fedora
+    distribution as the one provided in RPM is quite outdated and lacks few
+    features, such as password authentication over openssh.
+
+    You should be fine, if you follow the steps above.
 
 Is everything working?
 ======================
 
-You should be ready to execute the tests, if the steps above were all successful.
+You should be ready to execute the tests, if the steps above were all
+successful. Go to the root of sssd-tests-poc repository and run the tests with:
 
 .. code-blocK:: text
 
