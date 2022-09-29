@@ -32,6 +32,26 @@ Setup containers
     $ sudo make setup-dns
     $ sudo make up
 
+.. warning::
+
+    ``make setup-dns`` disables systemd-resolved and configures NetworkManager
+    to resolve related domains through dnsmasq and a DNS server running in one
+    of the containers. See the `script`_ and `dnsmasq`_ configuration for more
+    details.
+
+    If you see ``Could not determine IP address`` error when running tests, it
+    means that the DNS server is not reachable. Make sure that the DNS server is
+    running by starting the container with ``sudo make up`` and then run ``sudo
+    make setup-dns`` again.
+
+    If you don't want to modify your system so extensively, you can run ``sudo
+    make setup-dns-files`` instead. This will only append records to your
+    ``/etc/hosts`` file to make the host names resolvable. SRV or PTR lookups
+    will not work, but that is not required to run the tests.
+
+.. _script: https://github.com/SSSD/sssd-ci-containers/blob/master/src/tools/setup-dns.sh
+.. _dnsmasq: https://github.com/SSSD/sssd-ci-containers/blob/master/data/configs/dnsmasq.conf
+
 Setup Active Directory with vagrant
 ===================================
 
