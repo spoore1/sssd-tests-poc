@@ -354,6 +354,7 @@ class LDAPHost(ProviderHost):
             if dn in self.__backup:
                 original_attrs = self.__backup[dn]
                 modlist = ldap.modlist.modifyModlist(attrs, original_attrs)
+                modlist = self.__filter_modlist(dn, modlist)
                 if modlist:
                     self.conn.modify_s(dn, modlist)
 
@@ -368,6 +369,19 @@ class LDAPHost(ProviderHost):
             if dn not in data:
                 self.conn.add_s(dn, list(attrs.items()))
 
+    def __filter_modlist(self, dn, modlist: list) -> list:
+        if dn != 'cn=config':
+            return modlist
+
+        result = []
+        for (op, attr, value) in modlist:
+            # We are not allowed to touch these
+            if attr.startswith('nsslapd'):
+                continue
+
+            result.append((op, attr, value))
+
+        return result
 
 class IPAHost(ProviderHost):
     """
