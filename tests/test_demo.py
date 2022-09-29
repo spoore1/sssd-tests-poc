@@ -351,9 +351,7 @@ def test__29(client: Client, provider: GenericProvider):
     assert result.group.id == 10001
 
 
-@pytest.mark.topology(KnownTopology.LDAP)
-@pytest.mark.topology(KnownTopology.IPA)
-@pytest.mark.topology(KnownTopology.AD)
+@pytest.mark.topology(KnownTopologyGroup.AnyProvider)
 def test__30(client: Client, provider: GenericProvider):
     u = provider.user('tuser').add()
     provider.sudorule('defaults').add(nopasswd=True)

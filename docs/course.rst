@@ -1396,7 +1396,7 @@ Does it work? Good. Now, you can continue with the following tasks.
     :color: secondary
     :icon: checklist
 
-    #. Create a new test for LDAP, IPA and AD topology.
+    #. Create a new test for LDAP, IPA, Samba and AD topology.
     #. Add new user named ``tuser``.
     #. Add new sudo rule ``defaults`` and set ``!authenticate`` option
     #. Add new sudo rule to that ``ALL`` users on ``ALL`` hosts run ``ALL`` commands.
@@ -1425,9 +1425,7 @@ Does it work? Good. Now, you can continue with the following tasks.
 
         .. code-block:: python
 
-            @pytest.mark.topology(KnownTopology.LDAP)
-            @pytest.mark.topology(KnownTopology.IPA)
-            @pytest.mark.topology(KnownTopology.AD)
+            @pytest.mark.topology(KnownTopologyGroup.AnyProvider)
             def test__30(client: Client, provider: GenericProvider):
                 u = provider.user('tuser').add()
                 provider.sudorule('defaults').add(nopasswd=True)
