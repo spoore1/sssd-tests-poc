@@ -230,6 +230,8 @@ It is possible to further simplify access to a selected domain.
             client.sssd.dom('test')['use_fully_qualified_names'] = 'true'
             client.sssd.domain['use_fully_qualified_names'] = 'true'
 
+.. _importing-domain:
+
 Importing SSSD domain from provider role
 ----------------------------------------
 

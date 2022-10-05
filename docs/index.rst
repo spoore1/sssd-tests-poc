@@ -6,6 +6,7 @@ sssd - writing tests
 
    running-tests
    writing-tests
+   config
    guides/index
    course
    api

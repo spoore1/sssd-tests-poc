@@ -100,6 +100,8 @@ that you can use to put it in the code:
         TopologyDomain('sssd', client=1, ldap=1)
     )
 
+.. _mh-fixture:
+
 Using the mh fixture
 ====================
 
