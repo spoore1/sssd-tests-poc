@@ -33,9 +33,7 @@ class BaseHost(object):
         self.host: pytest_multihost_Host = host
         self.role: str = self.host.role
         self.hostname: str = self.host.external_hostname
-        self.domain = self.hostname.split('.', maxsplit=1)[1]
         self.config: dict[str, any] = config
-
         self.test_dir = self.host.test_dir
 
     @classmethod
@@ -399,7 +397,6 @@ class IPAHost(ProviderHost):
         self.client.setdefault('id_provider', 'ipa')
         self.client.setdefault('access_provider', 'ipa')
         self.client.setdefault('ipa_server', self.hostname)
-        self.client.setdefault('ipa_domain', self.domain)
         self.client.setdefault('dyndns_update', False)
 
         # Backup of original data
@@ -452,7 +449,6 @@ class SambaHost(ProviderHost):
         self.client.setdefault('id_provider', 'ad')
         self.client.setdefault('access_provider', 'ad')
         self.client.setdefault('ad_server', self.hostname)
-        self.client.setdefault('ad_domain', self.domain)
         self.client.setdefault('dyndns_update', False)
 
         # Backup of original data
@@ -525,7 +521,6 @@ class ADHost(ProviderHost):
         self.client.setdefault('id_provider', 'ad')
         self.client.setdefault('access_provider', 'ad')
         self.client.setdefault('ad_server', self.hostname)
-        self.client.setdefault('ad_domain', self.domain)
         self.client.setdefault('dyndns_update', False)
 
         # Backup of original data
