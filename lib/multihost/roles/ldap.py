@@ -328,7 +328,11 @@ class LDAPUser(LDAPObject):
         password: str | None = 'Secret123',
         home: str | None = None,
         gecos: str | None = None,
-        shell: str | None = None
+        shell: str | None = None,
+        shadowMin: int | None = None,
+        shadowMax: int | None = None,
+        shadowWarning: int | None = None,
+        shadowLastChange: int | None = None
     ) -> LDAPUser:
         """
         Create new LDAP user.
@@ -348,6 +352,14 @@ class LDAPUser(LDAPObject):
         :type gecos: str | None, optional
         :param shell: Login shell, defaults to None
         :type shell: str | None, optional
+        :param shadowMin: shadowmin LDAP attribute, defaults to None
+        :type shadowMin: int | None, optional
+        :param shadowMax: shadowmax LDAP attribute, defaults to None
+        :type shadowMax: int | None, optional
+        :param shadowWarning: shadowwarning LDAP attribute, defaults to None
+        :type shadowWarning: int | None, optional
+        :param shadowLastChange: shadowlastchage LDAP attribute, defaults to None
+        :type shadowLastChange: int | None, optional
         :return: Self.
         :rtype: LDAPUser
         """
@@ -360,7 +372,7 @@ class LDAPUser(LDAPObject):
             gid = uid
 
         attrs = {
-            'objectClass': 'posixAccount',
+            'objectClass': ['posixAccount'],
             'cn': self.name,
             'uid': self.name,
             'uidNumber': uid,
@@ -369,7 +381,14 @@ class LDAPUser(LDAPObject):
             'userPassword': self._hash_password(password),
             'gecos': gecos,
             'loginShell': shell,
+            'shadowMin': shadowMin,
+            'shadowMax': shadowMax,
+            'shadowWarning': shadowWarning,
+            'shadowLastChange': shadowLastChange,
         }
+
+        if self._remove_none_from_list([shadowMin, shadowMax, shadowWarning, shadowLastChange]):
+            attrs['objectClass'].append("shadowAccount")
 
         self._add(attrs)
         return self
@@ -383,6 +402,10 @@ class LDAPUser(LDAPObject):
         home: str | LDAP.Flags | None = None,
         gecos: str | LDAP.Flags | None = None,
         shell: str | LDAP.Flags | None = None,
+        shadowMin: int | LDAP.Flags | None = None,
+        shadowMax: int | LDAP.Flags | None = None,
+        shadowWarning: int | LDAP.Flags | None = None,
+        shadowLastChange: int | LDAP.Flags | None = None,
     ) -> LDAPUser:
         """
         Modify existing LDAP user.
@@ -400,6 +423,14 @@ class LDAPUser(LDAPObject):
         :type gecos: str | LDAP.Flags | None, optional
         :param shell: Login shell, defaults to None
         :type shell: str | LDAP.Flags | None, optional
+        :param shadowMin: shadowmin LDAP attribute, defaults to None
+        :type shadowMin: int | LDAP.Flags | None, optional
+        :param shadowMax: shadowmax LDAP attribute, defaults to None
+        :type shadowMax: int | LDAP.Flags | None, optional
+        :param shadowWarning: shadowwarning LDAP attribute, defaults to None
+        :type shadowWarning: int | LDAP.Flags | None, optional
+        :param shadowLastChange: shadowlastchage LDAP attribute, defaults to None
+        :type shadowLastChange: int | LDAP.Flags | None, optional
         :return: Self.
         :rtype: LDAPUser
         """
@@ -410,6 +441,10 @@ class LDAPUser(LDAPObject):
             'userPassword': self._hash_password(password),
             'gecos': gecos,
             'loginShell': shell,
+            'shadowMin': shadowMin,
+            'shadowMax': shadowMax,
+            'shadowWarning': shadowWarning,
+            'shadowLastChange': shadowLastChange,
         }
 
         self._set(attrs)

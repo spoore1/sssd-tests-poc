@@ -235,6 +235,17 @@ class BaseObject(object):
     def _to_string_list(self, value: any | list[any]) -> list[str]:
         return [str(x) for x in self._to_list(value)]
 
+    def _remove_none_from_list(self, r_list: list[any]) -> list[any]:
+        """
+        Remove all elements that are ``None`` from the list.
+
+        :param r_list: List of all elements.
+        :type r_list: list[any]
+        :return: New list with all values from the given list that are not ``None``.
+        :rtype: list[any]
+        """
+        return [x for x in r_list if x is not None]
+
 
 class LinuxRole(BaseRole):
     """
