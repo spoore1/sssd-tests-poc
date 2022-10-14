@@ -5,6 +5,7 @@ lib.multihost.utils
    :maxdepth: 2
 
    authselect
+   automount
    base
    fs
    service

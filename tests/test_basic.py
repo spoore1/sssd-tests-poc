@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from lib.multihost import KnownTopology, KnownTopologyGroup, Multihost, Topology, TopologyDomain
+from lib.multihost import KnownTopology, Multihost, Topology, TopologyDomain
 from lib.multihost.roles import AD, IPA, LDAP, Client, GenericADProvider, GenericProvider, Samba
 
 

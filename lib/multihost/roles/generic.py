@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from .base import BaseObject, BaseRole
+from .nfs import NFSExport
 
 
 class GenericProvider(ABC, BaseRole):
@@ -49,6 +50,14 @@ class GenericProvider(ABC, BaseRole):
         :type name: str
         :return: New sudo rule object.
         :rtype: GenericSudoRule
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def automount(self) -> GenericAutomount:
+        """
+        Provides API to manipulate automount objects.
         """
         pass
 
@@ -369,4 +378,160 @@ class GenericSudoRule(ABC, BaseObject):
         :return: Dictionary with attribute name as a key.
         :rtype: dict[str, list[str]]
         """
+        pass
+
+
+class GenericAutomount(ABC):
+    """
+    Generic automount management.
+    """
+
+    @abstractmethod
+    def map(self, name: str) -> GenericAutomountMap:
+        """
+        Get automount map object.
+
+        :param name: Automount map name.
+        :type name: str
+        :return: New automount map object.
+        :rtype: GenericAutomountMap
+        """
+        pass
+
+    @abstractmethod
+    def key(self, name: str, map: GenericAutomountMap) -> GenericAutomountKey:
+        """
+        Get automount key object.
+
+        :param name: Automount key name.
+        :type name: str
+        :param map: Automount map that is a parent to this key.
+        :type map: GenericAutomountMap
+        :return: New automount key object.
+        :rtype: GenericAutomountKey
+        """
+        pass
+
+
+class GenericAutomountMap(ABC, BaseObject):
+    """
+    Generic automount map management.
+    """
+
+    @abstractmethod
+    def add(self) -> GenericAutomountMap:
+        """
+        Create new automount map.
+
+        :return: Self.
+        :rtype: GenericAutomountMap
+        """
+        pass
+
+    @abstractmethod
+    def key(self, name: str) -> GenericAutomountKey:
+        """
+        Get automount key object for this map.
+
+        :param name: Automount key name.
+        :type name: str
+        :return: New automount key object.
+        :rtype: GenericAutomountKey
+        """
+        pass
+
+    @abstractmethod
+    def delete(self) -> None:
+        """
+        Delete the automout map.
+        """
+        pass
+
+    @abstractmethod
+    def get(self, attrs: list[str] | None = None) -> dict[str, list[str]]:
+        """
+        Get automount map attributes.
+
+        :param attrs: If set, only requested attributes are returned, defaults to None
+        :type attrs: list[str] | None, optional
+        :return: Dictionary with attribute name as a key.
+        :rtype: dict[str, list[str]]
+        """
+        pass
+
+
+class GenericAutomountKey(ABC, BaseObject):
+    """
+    Generic automount key management.
+    """
+
+    @abstractmethod
+    def add(
+        self,
+        *,
+        info: str | NFSExport | GenericAutomountMap
+    ) -> GenericAutomountKey:
+        """
+        Create new automount key.
+
+        :param info: Automount information.
+        :type info: str | NFSExport | GenericAutomountMap
+        :return: Self.
+        :rtype: GenericAutomountKey
+        """
+        pass
+
+    @abstractmethod
+    def modify(
+        self,
+        *,
+        info: str | NFSExport | GenericAutomountMap | None = None,
+    ) -> GenericAutomountKey:
+        """
+        Modify existing automount key.
+
+        :param info: Automount information, defaults to ``None``
+        :type info: str | NFSExport | GenericAutomountMap | None
+        :return: Self.
+        :rtype: GenericAutomountKey
+        """
+        pass
+
+    @abstractmethod
+    def delete(self) -> None:
+        """
+        Delete the automount key.
+        """
+        pass
+
+    @abstractmethod
+    def get(self, attrs: list[str] | None = None) -> dict[str, list[str]]:
+        """
+        Get automount key attributes.
+
+        :param attrs: If set, only requested attributes are returned, defaults to None
+        :type attrs: list[str] | None, optional
+        :return: Dictionary with attribute name as a key.
+        :rtype: dict[str, list[str]]
+        """
+        pass
+
+    @abstractmethod
+    def dump(self) -> str:
+        """
+        Dump the key in the ``automount -m`` format.
+
+        .. code-block:: text
+
+            export1 | -fstype=nfs,rw,sync,no_root_squash nfs.test:/dev/shm/exports/export1
+
+        You can also call ``str(key)`` instead of ``key.dump()``.
+
+        :return: Key information in ``automount -m`` format.
+        :rtype: str
+        """
+        pass
+
+    @abstractmethod
+    def __str__(self) -> str:
         pass

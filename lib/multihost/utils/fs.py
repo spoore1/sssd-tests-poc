@@ -61,6 +61,34 @@ class HostFileSystem(MultihostUtility):
 
         self.__rollback.append(f"rm -fr '{path}'")
 
+    def mkdir_p(self, path: str, *, mode: str = None, user: str = None, group: str = None) -> None:
+        """
+        Create directory on remote host, including all missing parent directories.
+
+        :param path: Path of the directory.
+        :type path: str
+        :param mode: Access mode (chmod value), defaults to None
+        :type mode: str, optional
+        :param user: Owner, defaults to None
+        :type user: str, optional
+        :param group: Group, defaults to None
+        :type group: str, optional
+        :raises OSError: If directory can not be created.
+        """
+        cmd = f'''
+        set -x
+
+        mkdir -v -p '{path}' | head -1 | sed -E "s/mkdir:[^']+'(.+)'$/\\1/"
+        {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
+        '''
+
+        result = self.host.exec(cmd, raise_on_error=False)
+        if result.rc != 0:
+            raise OSError(result.stderr)
+
+        if result.stdout:
+            self.__rollback.append(f"rm -fr '{result.stdout}'")
+
     def mktmp(self, *, mode: str = None, user: str = None, group: str = None) -> str:
         """
         Create temporary file on remote host.

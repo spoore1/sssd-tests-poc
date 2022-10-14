@@ -7,6 +7,7 @@ from ..command import RemoteCommandResult
 from ..host import ADHost
 from ..utils.ldap import HostLDAP
 from .base import BaseObject, WindowsRole
+from .nfs import NFSExport
 
 if TYPE_CHECKING:
     from ..multihost import Multihost
@@ -21,6 +22,11 @@ class AD(WindowsRole):
         super().__init__(mh, role, host, user_cls=ADUser, group_cls=ADGroup)
         self.ldap: HostLDAP = HostLDAP(host)
         self.auto_ou: dict[str, bool] = {}
+
+        self.automount: ADAutomount = ADAutomount(self)
+        """
+        Provides API to manipulate automount objects.
+        """
 
     def setup(self) -> None:
         """
@@ -763,3 +769,214 @@ class ADSudoRule(ADObject):
             out.append(_get_value(value))
 
         return out
+
+
+class ADAutomount(object):
+    """
+    AD automount management.
+    """
+
+    def __init__(self, role: AD) -> None:
+        """
+        :param role: AD role object.
+        :type role: AD
+        """
+        self.__role = role
+
+    def map(self, name: str, basedn: ADObject | str | None = 'ou=autofs') -> ADAutomountMap:
+        """
+        Get automount map object.
+
+        :param name: Automount map name.
+        :type name: str
+        :param basedn: Base dn, defaults to ``ou=autofs``
+        :type basedn: ADObject | str | None, optional
+        :return: New automount map object.
+        :rtype: ADAutomountMap
+        """
+        return ADAutomountMap(self.__role, name, basedn)
+
+    def key(self, name: str, map: ADAutomountMap) -> ADAutomountKey:
+        """
+        Get automount key object.
+
+        :param name: Automount key name.
+        :type name: str
+        :param map: Automount map that is a parent to this key.
+        :type map: ADAutomountMap
+        :return: New automount key object.
+        :rtype: ADAutomountKey
+        """
+        return ADAutomountKey(self.__role, name, map)
+
+
+class ADAutomountMap(ADObject):
+    """
+    AD automount map management.
+    """
+
+    def __init__(
+        self,
+        role: AD,
+        name: str,
+        basedn: ADObject | str | None = 'ou=autofs',
+    ) -> None:
+        """
+        :param role: AD role object.
+        :type role: AD
+        :param name: Automount map name.
+        :type name: str
+        :param basedn: Base dn, defaults to ``ou=autofs``
+        :type basedn: ADObject | str | None, optional
+        """
+        super().__init__(role, 'Object', name, f'cn={name}', basedn, default_ou='autofs')
+
+    def add(
+        self,
+    ) -> ADAutomountMap:
+        """
+        Create new AD automount map.
+
+        :return: Self.
+        :rtype: ADAutomountMap
+        """
+        attrs = {
+            'objectClass': 'nisMap',
+            'cn': self.name,
+            'nisMapName': self.name,
+        }
+
+        args = {
+            'Name': (self.cli.VALUE, self.name),
+            'Type': (self.cli.VALUE, 'nisMap'),
+            'OtherAttributes': (self.cli.PLAIN, self._attrs_to_hash(attrs)),
+            'Path': (self.cli.VALUE, self.path),
+        }
+
+        self._add(args)
+        return self
+
+    def key(self, name: str) -> ADAutomountKey:
+        """
+        Get automount key object for this map.
+
+        :param name: Automount key name.
+        :type name: str
+        :return: New automount key object.
+        :rtype: ADAutomountKey
+        """
+        return ADAutomountKey(self.role, name, self)
+
+
+class ADAutomountKey(ADObject):
+    """
+    AD automount key management.
+    """
+
+    def __init__(
+        self,
+        role: AD,
+        name: str,
+        map: ADAutomountMap,
+    ) -> None:
+        """
+        :param role: AD role object.
+        :type role: AD
+        :param name: Automount key name.
+        :type name: str
+        :param map: Automount map that is a parent to this key.
+        :type map: ADAutomountMap
+        """
+        super().__init__(role, 'Object', name, f'cn={name}', map)
+        self.map = map
+        self.info = None
+
+    def add(
+        self,
+        *,
+        info: str | NFSExport | ADAutomountMap
+    ) -> ADAutomountKey:
+        """
+        Create new AD automount key.
+
+        :param info: Automount information.
+        :type info: str | NFSExport | ADAutomountMap
+        :return: Self.
+        :rtype: ADAutomountKey
+        """
+        info = self.__get_info(info)
+        attrs = {
+            'objectClass': 'nisObject',
+            'cn': self.name,
+            'nisMapEntry': info,
+            'nisMapName': self.map.name,
+        }
+
+        args = {
+            'Name': (self.cli.VALUE, self.name),
+            'Type': (self.cli.VALUE, 'nisObject'),
+            'OtherAttributes': (self.cli.PLAIN, self._attrs_to_hash(attrs)),
+            'Path': (self.cli.VALUE, self.path),
+        }
+
+        self._add(args)
+        self.info = info
+        return self
+
+    def modify(
+        self,
+        *,
+        info: str | NFSExport | ADAutomountMap | AD.Flags | None = None,
+    ) -> ADAutomountKey:
+        """
+        Modify existing AD automount key.
+
+        :param info: Automount information, defaults to ``None``
+        :type info:  str | NFSExport | ADAutomountMap | AD.Flags | None
+        :return: Self.
+        :rtype: ADAutomountKey
+        """
+        info = self.__get_info(info)
+        attrs = {
+            'nisMapEntry': info,
+        }
+
+        clear = [key for key, value in attrs.items() if value == AD.Flags.DELETE]
+        replace = {key: value for key, value in attrs.items() if value is not None and value != AD.Flags.DELETE}
+
+        args = {
+            **self._identity,
+            'Replace': (self.cli.PLAIN, self._attrs_to_hash(replace)),
+            'Clear': (self.cli.PLAIN, ','.join(clear) if clear else None),
+        }
+
+        self._modify(args)
+        self.info = info if info != AD.Flags.DELETE else ''
+        return self
+
+    def dump(self) -> str:
+        """
+        Dump the key in the ``automount -m`` format.
+
+        .. code-block:: text
+
+            export1 | -fstype=nfs,rw,sync,no_root_squash nfs.test:/dev/shm/exports/export1
+
+        You can also call ``str(key)`` instead of ``key.dump()``.
+
+        :return: Key information in ``automount -m`` format.
+        :rtype: str
+        """
+        return f'{self.name} | {self.info}'
+
+    def __str__(self) -> str:
+        return self.dump()
+
+    def __get_info(self, info: str | NFSExport | ADAutomountMap | AD.Flags | None):
+        if isinstance(info, NFSExport):
+            return info.get()
+
+        if isinstance(info, ADAutomountMap):
+            return info.name
+
+        return info

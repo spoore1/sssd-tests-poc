@@ -57,3 +57,10 @@ domains:
         ad_domain: samba.test
         krb5_keytab: /enrollment/samba.keytab
         ldap_krb5_keytab: /enrollment/samba.keytab
+
+  - hostname: nfs.test
+    role: nfs
+    username: root
+    password: Secret123
+    config:
+      exports_dir: /dev/shm/exports

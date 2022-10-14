@@ -34,9 +34,9 @@ class KnownTopology(Enum):
 
     LDAP = TopologyMark(
         name='ldap',
-        topology=Topology(TopologyDomain('sssd', client=1, ldap=1)),
+        topology=Topology(TopologyDomain('sssd', client=1, ldap=1, nfs=1)),
         domains=dict(test='sssd.ldap[0]'),
-        fixtures=dict(client='sssd.client[0]', ldap='sssd.ldap[0]', provider='sssd.ldap[0]'),
+        fixtures=dict(client='sssd.client[0]', ldap='sssd.ldap[0]', provider='sssd.ldap[0]', nfs='sssd.nfs[0]'),
     )
     """
     .. topology-mark:: KnownTopology.LDAP
@@ -44,9 +44,9 @@ class KnownTopology(Enum):
 
     IPA = TopologyMark(
         name='ipa',
-        topology=Topology(TopologyDomain('sssd', client=1, ipa=1)),
+        topology=Topology(TopologyDomain('sssd', client=1, ipa=1, nfs=1)),
         domains=dict(test='sssd.ipa[0]'),
-        fixtures=dict(client='sssd.client[0]', ipa='sssd.ipa[0]', provider='sssd.ipa[0]'),
+        fixtures=dict(client='sssd.client[0]', ipa='sssd.ipa[0]', provider='sssd.ipa[0]', nfs='sssd.nfs[0]'),
     )
     """
     .. topology-mark:: KnownTopology.IPA
@@ -54,9 +54,9 @@ class KnownTopology(Enum):
 
     AD = TopologyMark(
         name='ad',
-        topology=Topology(TopologyDomain('sssd', client=1, ad=1)),
+        topology=Topology(TopologyDomain('sssd', client=1, ad=1, nfs=1)),
         domains=dict(test='sssd.ad[0]'),
-        fixtures=dict(client='sssd.client[0]', ad='sssd.ad[0]', provider='sssd.ad[0]'),
+        fixtures=dict(client='sssd.client[0]', ad='sssd.ad[0]', provider='sssd.ad[0]', nfs='sssd.nfs[0]'),
     )
     """
     .. topology-mark:: KnownTopology.AD
@@ -64,9 +64,9 @@ class KnownTopology(Enum):
 
     Samba = TopologyMark(
         name='samba',
-        topology=Topology(TopologyDomain('sssd', client=1, samba=1)),
+        topology=Topology(TopologyDomain('sssd', client=1, samba=1, nfs=1)),
         domains={'test': 'sssd.samba[0]'},
-        fixtures=dict(client='sssd.client[0]', samba='sssd.samba[0]', provider='sssd.samba[0]'),
+        fixtures=dict(client='sssd.client[0]', samba='sssd.samba[0]', provider='sssd.samba[0]', nfs='sssd.nfs[0]'),
     )
     """
     .. topology-mark:: KnownTopology.Samba

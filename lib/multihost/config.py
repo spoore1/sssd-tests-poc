@@ -4,7 +4,7 @@ import logging
 
 import pytest_multihost
 
-from .host import ADHost, BaseHost, IPAHost, LDAPHost, SambaHost
+from .host import ADHost, BaseHost, IPAHost, LDAPHost, NFSHost, SambaHost
 
 
 class MultihostDomain(pytest_multihost.config.Domain):
@@ -40,6 +40,7 @@ class MultihostDomain(pytest_multihost.config.Domain):
             'ldap': LDAPHost,
             'ipa': IPAHost,
             'samba': SambaHost,
+            'nfs': NFSHost,
         }
 
 

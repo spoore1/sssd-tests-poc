@@ -6,6 +6,7 @@ from .client import Client
 from .generic import GenericADProvider, GenericProvider
 from .ipa import IPA
 from .ldap import LDAP
+from .nfs import NFS
 from .samba import Samba
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "IPA",
     "LDAP",
     "LinuxRole",
+    "NFS",
     "Samba",
     "WindowsRole",
 ]
@@ -28,7 +30,8 @@ def get_role_class(role: str) -> type[BaseRole]:
         'ad': AD,
         'ipa': IPA,
         'ldap': LDAP,
-        'samba': Samba
+        'samba': Samba,
+        'nfs': NFS,
     }
 
     if role not in mapping:

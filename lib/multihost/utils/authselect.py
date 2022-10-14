@@ -32,7 +32,7 @@ class HostAuthselect(MultihostUtility):
 
         super().teardown()
 
-    def select(self, profile: str, features:  list[str]) -> None:
+    def select(self, profile: str, features:  list[str] = []) -> None:
         backup = []
         if self.__backup is None:
             self.__backup = 'multihost.backup'

@@ -1,12 +1,27 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+from ..host import IPAHost
 from .base import BaseObject, LinuxRole
+from .nfs import NFSExport
+
+if TYPE_CHECKING:
+    from ..multihost import Multihost
 
 
 class IPA(LinuxRole):
     """
     IPA service management.
     """
+
+    def __init__(self, mh: Multihost, role: str, host: IPAHost) -> None:
+        super().__init__(mh, role, host, user_cls=IPAUser, group_cls=IPAGroup)
+
+        self.automount: IPAAutomount = IPAAutomount(self)
+        """
+        Provides API to manipulate automount objects.
+        """
 
     def setup(self) -> None:
         """
@@ -84,7 +99,7 @@ class IPAObject(BaseObject):
     def _exec(self, op: str, args: list[str] = list(), **kwargs) -> None:
         return self.role.host.exec(['ipa', f'{self.command}-{op}', self.name, *args], **kwargs)
 
-    def _add(self, attrs: dict[str, tuple[BaseObject.cli, any]], stdin: str | None = None):
+    def _add(self, attrs: dict[str, tuple[BaseObject.cli, any]] = dict(), stdin: str | None = None):
         self._exec('add', self._build_args(attrs), stdin=stdin)
 
     def _modify(self, attrs: dict[str, tuple[BaseObject.cli, any]], stdin: str | None = None):
@@ -609,3 +624,266 @@ class IPASudoRule(IPAObject):
     def __exec_with_args(self, cmd: str, name: str, args: str) -> None:
         if args:
             self.role.host.exec(f'ipa {cmd} "{name}" {args}')
+
+
+class IPAAutomount(object):
+    """
+    IPA automount management.
+    """
+
+    def __init__(self, role: IPA) -> None:
+        """
+        :param role: IPA role object.
+        :type role: IPA
+        """
+        self.__role = role
+
+    def location(self, name: str) -> IPAAutomountLocation:
+        """
+        Get automount location object.
+
+        :param name: Automount location name
+        :type name: str
+        :return: New automount location object.
+        :rtype: IPAAutomountLocation
+        """
+        return IPAAutomountLocation(self.__role, name)
+
+    def map(self, name: str, location: str = 'default') -> IPAAutomountMap:
+        """
+        Get automount map object.
+
+        :param name: Automount map name.
+        :type name: str
+        :param location: Automount map location, defaults to ``default``
+        :type location: str
+        :return: New automount map object.
+        :rtype: IPAAutomountMap
+        """
+        return IPAAutomountMap(self.__role, name, location)
+
+    def key(self, name: str, map: IPAAutomountMap) -> IPAAutomountKey:
+        """
+        Get automount key object.
+
+        :param name: Automount key name.
+        :type name: str
+        :param map: Automount map that is a parent to this key.
+        :type map: IPAAutomountMap
+        :return: New automount key object.
+        :rtype: IPAAutomountKey
+        """
+        return IPAAutomountKey(self.__role, name, map)
+
+
+class IPAAutomountLocation(IPAObject):
+    """
+    IPA automount location management.
+    """
+
+    def __init__(
+        self,
+        role: IPA,
+        name: str,
+    ) -> None:
+        """
+        :param role: IPA role object.
+        :type role: IPA
+        :param location: Automount map location
+        :type location: str
+        """
+        super().__init__(role, 'automountlocation', name)
+
+    def add(
+        self,
+    ) -> IPAAutomountMap:
+        """
+        Create new IPA automount location.
+
+        :return: Self.
+        :rtype: IPAAutomountLocation
+        """
+        self._add()
+
+        # Delete auto.master and auto.direct maps that are automatically created
+        # in a newly added location. This makes the IPA initial state consistent
+        # with other providers and the tests can be more explicit.
+        self.map('auto.master').delete()
+        self.map('auto.direct').delete()
+
+        return self
+
+    def map(self, name: str) -> IPAAutomountMap:
+        """
+        Get automount map object for this location.
+
+        :param name: Automount map name.
+        :type name: str
+        :return: New automount map object.
+        :rtype: IPAAutomountMap
+        """
+        return IPAAutomountMap(self.role, name, self)
+
+
+class IPAAutomountMap(IPAObject):
+    """
+    IPA automount map management.
+    """
+
+    def __init__(
+        self,
+        role: IPA,
+        name: str,
+        location: IPAAutomountLocation | str = 'default'
+    ) -> None:
+        """
+        :param role: IPA role object.
+        :type role: IPA
+        :param name: Automount map name.
+        :type name: str
+        :param location: Automount map location, defaults to ``default``
+        :type location: IPAAutomountLocation | str
+        """
+        super().__init__(role, 'automountmap', name)
+        self.location: IPAAutomountLocation = self.__get_location(location)
+
+    def __get_location(self, location: IPAAutomountLocation | str) -> IPAAutomountLocation:
+        if isinstance(location, str):
+            return IPAAutomountLocation(self.role, location)
+        elif isinstance(location, IPAAutomountLocation):
+            return location
+        else:
+            raise ValueError(f'Unexepected location type: {type(location)}')
+
+    def _exec(self, op: str, args: list[str] = list(), **kwargs) -> None:
+        defargs = self._build_args({
+            'location': (self.cli.POSITIONAL, self.location.name),
+            'mapname': (self.cli.POSITIONAL, self.name),
+        })
+        return self.role.host.exec(['ipa', f'{self.command}-{op}', *defargs, *args], **kwargs)
+
+    def add(
+        self,
+    ) -> IPAAutomountMap:
+        """
+        Create new IPA Automount map.
+
+        :return: Self.
+        :rtype: IPAAutomountMap
+        """
+        self._add()
+        return self
+
+    def key(self, name: str) -> IPAAutomountKey:
+        """
+        Get automount key object for this map.
+
+        :param name: Automount key name.
+        :type name: str
+        :return: New automount key object.
+        :rtype: IPAAutomountKey
+        """
+        return IPAAutomountKey(self.role, name, self)
+
+
+class IPAAutomountKey(IPAObject):
+    """
+    IPA automount key management.
+    """
+
+    def __init__(
+        self,
+        role: IPA,
+        name: str,
+        map: IPAAutomountMap,
+    ) -> None:
+        """
+        :param role: IPA role object.
+        :type role: IPA
+        :param name: Automount key name.
+        :type name: str
+        :param map: Automount map that is a parent to this key.
+        :type map: IPAAutomountMap
+        """
+        super().__init__(role, 'automountkey', name)
+        self.map = map
+        self.info = None
+
+    def _exec(self, op: str, args: list[str] = list(), **kwargs) -> None:
+        defargs = self._build_args({
+            'location': (self.cli.POSITIONAL, self.map.location.name),
+            'mapname': (self.cli.POSITIONAL, self.map.name),
+            'key': (self.cli.VALUE, self.name),
+        })
+        return self.role.host.exec(['ipa', f'{self.command}-{op}', *defargs, *args], **kwargs)
+
+    def add(
+        self,
+        *,
+        info: str | NFSExport | IPAAutomountMap
+    ) -> IPAAutomountKey:
+        """
+        Create new IPA automount key.
+
+        :param info: Automount information
+        :type info: str | NFSExport | IPAAutomountMap
+        :return: Self.
+        :rtype: IPAAutomountKey
+        """
+        info = self.__get_info(info)
+        attrs = {
+            'info': (self.cli.VALUE, info),
+        }
+
+        self._add(attrs)
+        self.info = info
+        return self
+
+    def modify(
+        self,
+        *,
+        info: str | NFSExport | IPAAutomountMap | None = None,
+    ) -> IPASudoRule:
+        """
+        Modify existing IPA automount key.
+
+        :param info: Automount information, defaults to ``None``
+        :type info: str | NFSExport | IPAAutomountMap | None
+        :return: Self.
+        :rtype: IPAAutomountKey
+        """
+        info = self.__get_info(info)
+        attrs = {
+            'info': (self.cli.VALUE, info),
+        }
+
+        self._modify(attrs)
+        self.info = info
+        return self
+
+    def dump(self) -> str:
+        """
+        Dump the key in the ``automount -m`` format.
+
+        .. code-block:: text
+
+            export1 | -fstype=nfs,rw,sync,no_root_squash nfs.test:/dev/shm/exports/export1
+
+        You can also call ``str(key)`` instead of ``key.dump()``.
+
+        :return: Key information in ``automount -m`` format.
+        :rtype: str
+        """
+        return f'{self.name} | {self.info}'
+
+    def __str__(self) -> str:
+        return self.dump()
+
+    def __get_info(self, info: str | NFSExport | IPAAutomountMap | None):
+        if isinstance(info, NFSExport):
+            return info.get()
+
+        if isinstance(info, IPAAutomountMap):
+            return info.name
+
+        return info

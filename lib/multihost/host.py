@@ -116,6 +116,18 @@ class BaseHost(object):
             'config': self.config,
         }
 
+    def backup(self) -> None:
+        """
+        Backup host.
+        """
+        pass
+
+    def restore(self) -> None:
+        """
+        Restore host to its original state.
+        """
+        pass
+
     def exec(
         self,
         argv: str | list[any] | tuple[any],
@@ -380,6 +392,7 @@ class LDAPHost(ProviderHost):
             result.append((op, attr, value))
 
         return result
+
 
 class IPAHost(ProviderHost):
     """
@@ -671,4 +684,44 @@ class ADHost(ProviderHost):
                 }}
             }}
         }}
+        ''')
+
+
+class NFSHost(BaseHost):
+    """
+    NFS server host object.
+
+    Provides NFS service management.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.exports_dir = self.config.get('exports_dir', '/exports').rstrip('/')
+
+        # Backup of original data
+        self.__backup: bool = False
+
+    def backup(self) -> None:
+        """
+        Backup NFS server.
+        """
+        if self.__backup:
+            return
+
+        self.exec(fr'''
+        tar --ignore-failed-read -czvf /tmp/mh.nfs.backup.tgz "{self.exports_dir}" /etc/exports /etc/exports.d
+        ''')
+
+        self.__backup = True
+
+    def restore(self) -> None:
+        """
+        Restore NFS server to its initial contents.
+        """
+
+        self.exec(fr'''
+        rm -fr "{self.exports_dir}/*"
+        rm -fr /etc/exports.d/*
+        tar -xf /tmp/mh.nfs.backup.tgz -C /
+        exportfs -r
         ''')

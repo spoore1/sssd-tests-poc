@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import TYPE_CHECKING
 
 import ldap
@@ -8,6 +9,7 @@ import ldap.ldapobject
 from ..host import LDAPHost
 from ..utils.ldap import HostLDAP
 from .base import BaseObject, LinuxRole
+from .nfs import NFSExport
 
 if TYPE_CHECKING:
     from ..multihost import Multihost
@@ -25,6 +27,11 @@ class LDAP(LinuxRole):
         self.auto_uid: int = 23000
         self.auto_gid: int = 33000
         self.auto_ou: dict[str, bool] = {}
+
+        self.automount: LDAPAutomount = LDAPAutomount(self)
+        """
+        Provides API to manipulate automount objects.
+        """
 
     def setup(self) -> None:
         """
@@ -788,3 +795,269 @@ class LDAPSudoRule(LDAPObject):
             out.append(_get_value(value))
 
         return out
+
+
+class LDAPAutomount(object):
+    """
+    LDAP automount management.
+    """
+
+    class Schema(Enum):
+        '''
+        LDAP automount schema.
+        '''
+
+        RFC2307 = 'rfc2307',
+        RFC2307bis = 'rfc2307bis',
+        AD = 'ad',
+
+    def __init__(self, role: LDAP) -> None:
+        """
+        :param role: LDAP role object.
+        :type role: LDAP
+        """
+        self.__role = role
+        self.__schema = self.Schema.RFC2307
+
+    def map(self, name: str, basedn: LDAPObject | str | None = 'ou=autofs') -> LDAPAutomountMap:
+        """
+        Get automount map object.
+
+        :param name: Automount map name.
+        :type name: str
+        :param basedn: Base dn, defaults to ``ou=autofs``
+        :type basedn: LDAPObject | str | None, optional
+        :return: New automount map object.
+        :rtype: LDAPAutomountMap
+        """
+        return LDAPAutomountMap(self.__role, name, basedn, schema=self.__schema)
+
+    def key(self, name: str, map: LDAPAutomountMap) -> LDAPAutomountKey:
+        """
+        Get automount key object.
+
+        :param name: Automount key name.
+        :type name: str
+        :param map: Automount map that is a parent to this key.
+        :type map: LDAPAutomountMap
+        :return: New automount key object.
+        :rtype: LDAPAutomountKey
+        """
+        return LDAPAutomountKey(self.__role, name, map, schema=self.__schema)
+
+    def set_schema(self, schema: 'LDAPAutomount.Schema'):
+        self.__schema = schema
+
+
+class LDAPAutomountMap(LDAPObject):
+    """
+    LDAP automount map management.
+    """
+
+    def __init__(
+        self,
+        role: LDAP,
+        name: str,
+        basedn: LDAPObject | str | None = 'ou=autofs',
+        *,
+        schema: LDAPAutomount.Schema = LDAPAutomount.Schema.RFC2307
+    ) -> None:
+        """
+        :param role: LDAP role object.
+        :type role: LDAP
+        :param name: Automount map name.
+        :type name: str
+        :param basedn: Base dn, defaults to ``ou=autofs``
+        :type basedn: LDAPObject | str | None, optional
+        :param schema: LDAP Automount schema, defaults to ``LDAPAutomount.Schema.RFC2307``
+        :type schema: LDAPAutomount.Schema
+        """
+        self.__schema = schema
+        self.__attrs = self.__get_attrs_map(schema)
+        super().__init__(role, f'{self.__attrs["rdn"]}={name}', basedn, default_ou='autofs')
+        self.name = name
+
+    def __get_attrs_map(self, schema: LDAPAutomount.Schema) -> dict[str, str]:
+        if schema == LDAPAutomount.Schema.RFC2307:
+            return {
+                'objectClass': 'nisMap',
+                'rdn': 'nisMapName',
+                'automountMapName': 'nisMapName',
+            }
+        elif schema == LDAPAutomount.Schema.RFC2307bis:
+            return {
+                'objectClass': 'automountMap',
+                'rdn': 'automountMapName',
+                'automountMapName': 'automountMapName',
+            }
+        elif schema == LDAPAutomount.Schema.AD:
+            return {
+                'objectClass': 'nisMap',
+                'rdn': 'cn',
+                'automountMapName': 'nisMapName',
+            }
+        else:
+            raise ValueError(f'Unknown schema: {schema}')
+
+    def add(
+        self,
+    ) -> LDAPAutomountMap:
+        """
+        Create new LDAP automount map.
+
+        :return: Self.
+        :rtype: LDAPAutomountMap
+        """
+        attrs = {
+            'objectClass': self.__attrs['objectClass'],
+            self.__attrs['automountMapName']: self.name,
+        }
+
+        if self.__schema == LDAPAutomount.Schema.AD:
+            attrs['cn'] = self.name
+
+        self._add(attrs)
+        return self
+
+    def key(self, name: str) -> LDAPAutomountKey:
+        """
+        Get automount key object for this map.
+
+        :param name: Automount key name.
+        :type name: str
+        :return: New automount key object.
+        :rtype: LDAPAutomountKey
+        """
+        return LDAPAutomountKey(self.role, name, self, schema=self.__schema)
+
+
+class LDAPAutomountKey(LDAPObject):
+    """
+    LDAP automount key management.
+    """
+
+    def __init__(
+        self,
+        role: LDAP,
+        name: str,
+        map: LDAPAutomountMap,
+        *,
+        schema: LDAPAutomount.Schema = LDAPAutomount.Schema.RFC2307
+    ) -> None:
+        """
+        :param role: LDAP role object.
+        :type role: LDAP
+        :param name: Automount key name.
+        :type name: str
+        :param map: Automount map that is a parent to this key.
+        :type map: LDAPAutomountMap
+        :param schema: LDAP Automount schema, defaults to ``LDAPAutomount.Schema.RFC2307``
+        :type schema: LDAPAutomount.Schema
+        """
+        self.__schema = schema
+        self.__attrs = self.__get_attrs_map(schema)
+        super().__init__(role, f'{self.__attrs["rdn"]}={name}', map)
+        self.name = name
+        self.map = map
+        self.info = ''
+
+    def __get_attrs_map(self, schema: LDAPAutomount.Schema) -> dict[str, str]:
+        if schema == LDAPAutomount.Schema.RFC2307:
+            return {
+                'objectClass': 'nisObject',
+                'rdn': 'cn',
+                'automountKey': 'cn',
+                'automountInformation': 'nisMapEntry',
+            }
+        elif schema == LDAPAutomount.Schema.RFC2307bis:
+            return {
+                'objectClass': 'automount',
+                'rdn': 'automountKey',
+                'automountKey': 'automountKey',
+                'automountInformation': 'automountInformation',
+            }
+        elif schema == LDAPAutomount.Schema.AD:
+            return {
+                'objectClass': 'nisObject',
+                'rdn': 'cn',
+                'automountKey': 'cn',
+                'automountInformation': 'nisMapEntry',
+            }
+        else:
+            raise ValueError(f'Unknown schema: {schema}')
+
+    def add(
+        self,
+        *,
+        info: str | NFSExport | LDAPAutomountMap
+    ) -> LDAPAutomountKey:
+        """
+        Create new LDAP automount key.
+
+        :param info: Automount information.
+        :type info: str | NFSExport | LDAPAutomountMap
+        :return: Self.
+        :rtype: LDAPAutomountKey
+        """
+        info = self.__get_info(info)
+        attrs = {
+            'objectClass': self.__attrs['objectClass'],
+            self.__attrs['automountKey']: self.name,
+            self.__attrs['automountInformation']: info,
+        }
+
+        if self.__schema in [LDAPAutomount.Schema.RFC2307, LDAPAutomount.Schema.AD]:
+            attrs['nisMapName'] = self.map.name
+
+        self._add(attrs)
+        self.info = info
+        return self
+
+    def modify(
+        self,
+        *,
+        info: str | NFSExport | LDAPAutomountMap | LDAP.Flags | None = None,
+    ) -> LDAPAutomountKey:
+        """
+        Modify existing LDAP automount key.
+
+        :param info: Automount information, defaults to ``None``
+        :type info: str | NFSExport | LDAPAutomountMap | LDAP.Flags | None
+        :return: Self.
+        :rtype: LDAPAutomountKey
+        """
+        info = self.__get_info(info)
+        attrs = {
+            self.__attrs['automountInformation']: info,
+        }
+
+        self._set(attrs)
+        self.info = info if info != LDAP.Flags.DELETE else ''
+        return self
+
+    def dump(self) -> str:
+        """
+        Dump the key in the ``automount -m`` format.
+
+        .. code-block:: text
+
+            export1 | -fstype=nfs,rw,sync,no_root_squash nfs.test:/dev/shm/exports/export1
+
+        You can also call ``str(key)`` instead of ``key.dump()``.
+
+        :return: Key information in ``automount -m`` format.
+        :rtype: str
+        """
+        return f'{self.name} | {self.info}'
+
+    def __str__(self) -> str:
+        return self.dump()
+
+    def __get_info(self, info: str | NFSExport | LDAPAutomountMap | LDAP.Flags | None):
+        if isinstance(info, NFSExport):
+            return info.get()
+
+        if isinstance(info, LDAPAutomountMap):
+            return info.name
+
+        return info

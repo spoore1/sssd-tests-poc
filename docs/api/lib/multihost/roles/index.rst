@@ -11,3 +11,4 @@ lib.multihost.roles
    ipa
    ldap
    samba
+   nfs

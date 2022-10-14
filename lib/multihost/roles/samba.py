@@ -7,7 +7,7 @@ import ldap.modlist
 from ..host import SambaHost
 from ..utils.ldap import HostLDAP
 from .base import BaseObject, LinuxRole
-from .ldap import LDAPObject, LDAPOrganizationalUnit, LDAPSudoRule
+from .ldap import LDAPAutomount, LDAPObject, LDAPOrganizationalUnit, LDAPSudoRule
 
 if TYPE_CHECKING:
     from ..multihost import Multihost
@@ -21,6 +21,15 @@ class Samba(LinuxRole):
     def __init__(self, mh: Multihost, role: str, host: SambaHost) -> None:
         super().__init__(mh, role, host, user_cls=SambaUser, group_cls=SambaGroup)
         self.ldap: HostLDAP = HostLDAP(host)
+        self.auto_ou: dict[str, bool] = {}
+
+        self.automount: LDAPAutomount = LDAPAutomount(self)
+        """
+        Provides API to manipulate automount objects.
+        """
+
+        # Set AD schema for automount
+        self.automount.set_schema(self.automount.Schema.AD)
 
     def setup(self) -> None:
         """
@@ -75,13 +84,13 @@ class Samba(LinuxRole):
         """
         return LDAPOrganizationalUnit(self, name, basedn)
 
-    def sudorule(self, name: str, basedn: LDAPObject | str | None = None) -> LDAPSudoRule:
+    def sudorule(self, name: str, basedn: LDAPObject | str | None = 'ou=sudoers') -> LDAPSudoRule:
         """
         Get sudo rule object.
 
         :param name: Rule name.
         :type name: str
-        :param basedn: Base dn, defaults to None
+        :param basedn: Base dn, defaults to ``ou=sudoers``
         :type basedn: LDAPObject | str | None, optional
         :return: New sudo rule object.
         :rtype: LDAPSudoRule

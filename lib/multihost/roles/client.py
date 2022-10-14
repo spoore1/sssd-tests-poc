@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..host import BaseHost
+from ..utils.automount import HostAutomount
 from ..utils.sssd import HostSSSD
 from .base import LinuxRole
 
@@ -16,6 +17,11 @@ class Client(LinuxRole):
         self.sssd: HostSSSD = HostSSSD(host, self.fs, self.svc, load_config=False)
         """
         SSSD management.
+        """
+
+        self.automount: HostAutomount = HostAutomount(host, self.svc)
+        """
+        API for automount testing.
         """
 
     def setup(self) -> None:

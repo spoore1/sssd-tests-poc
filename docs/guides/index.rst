@@ -6,3 +6,4 @@ How to guides
    using-roles
    testing-identity
    testing-authentication
+   testing-autofs
