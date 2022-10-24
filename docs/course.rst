@@ -1427,7 +1427,7 @@ Does it work? Good. Now, you can continue with the following tasks.
 
             @pytest.mark.topology(KnownTopologyGroup.AnyProvider)
             def test__30(client: Client, provider: GenericProvider):
-                u = provider.user('tuser').add()
+                provider.user('tuser').add()
                 provider.sudorule('defaults').add(nopasswd=True)
                 provider.sudorule('allow_all').add(user='ALL', host='ALL', command='ALL')
 
