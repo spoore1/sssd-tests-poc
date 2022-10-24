@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ..command import RemoteCommandResult
+from ..host import BaseHost
 from .base import MultihostUtility
 
 
@@ -8,6 +9,17 @@ class HostService(MultihostUtility):
     """
     Manage remote services.
     """
+
+    def __init__(self, host: BaseHost) -> None:
+        super().__init__(host)
+        self.initial_states: dict[str, bool] = {}
+
+    def teardown(self) -> None:
+        # Restart all services that were touched
+        for service, state in self.initial_states.items():
+            self.__systemctl('stop', service, raise_on_error=False, wait=True)
+            if state:
+                self.__systemctl('start', service, raise_on_error=False, wait=True)
 
     def start(self, service: str, raise_on_error: bool = True, wait: bool = True) -> RemoteCommandResult:
         """
@@ -25,6 +37,7 @@ class HostService(MultihostUtility):
         :return: Remote command result.
         :rtype: RemoteCommandResult
         """
+        self.__set_initial_state(service)
         return self.__systemctl('start', service, raise_on_error, wait)
 
     def stop(self, service: str, raise_on_error: bool = True, wait: bool = True) -> RemoteCommandResult:
@@ -43,6 +56,7 @@ class HostService(MultihostUtility):
         :return: Remote command result.
         :rtype: RemoteCommandResult
         """
+        self.__set_initial_state(service)
         return self.__systemctl('stop', service, raise_on_error, wait)
 
     def restart(self, service: str, raise_on_error: bool = True, wait: bool = True) -> RemoteCommandResult:
@@ -61,6 +75,7 @@ class HostService(MultihostUtility):
         :return: Remote command result.
         :rtype: RemoteCommandResult
         """
+        self.__set_initial_state(service)
         return self.__systemctl('restart', service, raise_on_error, wait)
 
     def reload(self, service: str, raise_on_error: bool = True, wait: bool = True) -> RemoteCommandResult:
@@ -122,3 +137,10 @@ class HostService(MultihostUtility):
             raise
 
         return result
+
+    def __set_initial_state(self, service: str) -> None:
+        if service in self.initial_states:
+            return
+
+        result = self.status(service, raise_on_error=False)
+        self.initial_states[service] = result.rc == 0
