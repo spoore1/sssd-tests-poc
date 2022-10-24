@@ -272,6 +272,14 @@ class ProviderHost(BaseHost):
 
         return self.__conn
 
+    def disconnect(self) -> None:
+        """
+        Disconnect LDAP connection.
+        """
+        if self.__conn is not None:
+            self.__conn.unbind()
+            self.__conn = None
+
     @property
     def naming_context(self) -> str:
         """
@@ -499,6 +507,8 @@ class SambaHost(ProviderHost):
         if self.__backup is None:
             return
 
+        self.disconnect()
+
         self.exec('''
             set -e
             systemctl stop samba
@@ -506,7 +516,12 @@ class SambaHost(ProviderHost):
             cp -r /var/lib/samba.bak /var/lib/samba
             systemctl start samba
             samba-tool ntacl sysvolreset
+
+            # systemctl finishes before samba is fully started, wait for it to start listening on ldap port
+            timeout 5s bash -c 'until netstat -ltp | grep :ldap &> /dev/null; do :; done'
         ''')
+
+        self.disconnect()
 
 
 class ADHost(ProviderHost):
@@ -641,6 +656,9 @@ class ADHost(ProviderHost):
             self.__naming_context = nc
 
         return self.__naming_context
+
+    def disconnect(self) -> None:
+        return
 
     def backup(self) -> None:
         """
