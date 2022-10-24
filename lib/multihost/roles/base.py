@@ -119,7 +119,7 @@ class BaseObject(object):
         """
         Build command line arguments.
 
-        Parameters are passed in :attr:`attrs` which is a dictionary. The key is
+        Parameters are passed in ``attrs`` which is a dictionary. The key is
         name of the command line argument and the value is a tuple of ``(type,
         value)``. The value is converted to string. If no value is given, that
         is if ``value`` is ``None``, then it is omitted.

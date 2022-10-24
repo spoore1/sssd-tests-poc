@@ -63,9 +63,10 @@ covered in the next section.
 Deep dive into multihost fixtures
 *********************************
 
-The previous example showed how to use :attr:`KnownTopology.LDAP` to define the
-required topology and provide ``client`` and ``ldap`` fixture. This section
-described the mechanics underneath so you can correctly write your own tests.
+The previous example showed how to use :attr:`lib.multihost.KnownTopology.LDAP`
+to define the required topology and provide ``client`` and ``ldap`` fixture.
+This section described the mechanics underneath so you can correctly write your
+own tests.
 
 Defining a topology
 ===================

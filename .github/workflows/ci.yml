@@ -1,0 +1,128 @@
+name: CI
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  flake8:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install packages
+      run: |
+        pip3 install flake8
+
+    - name: Execute flake8 on the repository
+      run: flake8 .
+
+  pycodestyle:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install packages
+      run: |
+        pip3 install pycodestyle
+
+    - name: Execute pycodestyle on the repository
+      run: pycodestyle .
+
+  isort:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install packages
+      run: |
+        pip3 install isort
+
+    - name: Execute isort on the repository
+      run: isort --check-only .
+
+  tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup containers
+      uses: SSSD/sssd-ci-containers/actions/setup@master
+      with:
+        path: sssd-ci-containers
+
+    - name: Install packages
+      run: |
+        sudo apt update
+        sudo apt install -y gcc python3-dev libldap2-dev libsasl2-dev sshpass
+
+        pip3 install virtualenv
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip3 install -r ./requirements.txt
+
+    - name: Install yq
+      run: |
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod a+x /usr/local/bin/yq
+
+    - name: Remove ad from mhc.yaml
+      run: |
+        yq -i 'del(.domains[0].hosts.[] | select(.role == "ad"))' mhc.yaml
+
+    - name: Run library tests
+      run: |
+        source .venv/bin/activate
+        pytest --color=yes -vv ./lib_tests
+
+    - name: Run demo tests
+      run: |
+        source .venv/bin/activate
+        pytest --color=yes --multihost-config ./mhc.yaml -vv ./tests/test_demo.py
+
+    - name: Run basic tests
+      run: |
+        source .venv/bin/activate
+        pytest --color=yes --multihost-config ./mhc.yaml -vv ./tests/test_basic.py
+
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install packages
+      run: |
+        sudo apt update
+        sudo apt install -y gcc python3-dev libldap2-dev libsasl2-dev sshpass
+
+        pip3 install virtualenv
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip3 install -r ./requirements.txt
+        pip3 install -r ./docs/requirements.txt
+
+    - name: Build docs
+      run: |
+        source .venv/bin/activate
+        cd docs
+        make html SPHINXOPTS="-W --keep-going"

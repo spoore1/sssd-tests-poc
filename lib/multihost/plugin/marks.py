@@ -73,7 +73,7 @@ class TopologyMark(object):
 
     def apply(self, mh: Multihost, funcargs: dict[str, any]) -> None:
         """
-        Create required fixtures by modifying :attr:`pytest.Item.funcargs`.
+        Create required fixtures by modifying pytest.Item.funcargs.
 
         :param mh: _description_
         :type mh: Multihost
