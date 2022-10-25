@@ -36,6 +36,10 @@ class BaseHost(object):
         self.config: dict[str, any] = config
         self.test_dir = self.host.test_dir
 
+        # SSH configuration
+        self.ssh_username: str = self.host.ssh_username
+        self.ssh_password: str = self.host.ssh_password
+
     @classmethod
     def from_dict(cls, dct: dict[str, any], domain: MultihostDomain) -> BaseHost:
         """

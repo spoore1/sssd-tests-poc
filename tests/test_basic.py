@@ -270,3 +270,10 @@ def test_ad_ou(client: Client, ad: AD):
     # client.sssd.start()
     # result = client.tools.id('tuser')
     # assert result.user.name == 'tuser'
+
+
+@pytest.mark.topology(KnownTopology.Client)
+def test_ssh_client(client: Client):
+    with client.ssh('ci', 'Secret123') as ssh:
+        result = ssh.run('id')
+        print(result.stdout)

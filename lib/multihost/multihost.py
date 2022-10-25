@@ -8,6 +8,7 @@ from pytest_multihost.config import Domain
 
 from .config import MultihostConfig
 from .host import BaseHost
+from .logging import MultihostLogger
 from .roles import BaseRole, get_role_class
 from .topology import Topology, TopologyDomain
 
@@ -60,8 +61,25 @@ class Multihost(object):
         """
 
         self.data: MultihostItemData = request.node.multihost
-        self.request = request
-        self.multihost = multihost
+        """
+        Multihost item data.
+        """
+
+        self.request: pytest.FixtureRequest = request
+        """
+        Pytest request.
+        """
+
+        self.multihost: MultihostConfig = multihost
+        """
+        Multihost configuration.
+        """
+
+        self.logger: MultihostLogger = MultihostLogger.Setup(multihost.log_path)
+        """
+        Multihost logger.
+        """
+
         self._paths = {}
 
         for domain in self.multihost.domains:

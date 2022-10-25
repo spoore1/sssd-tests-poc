@@ -4,6 +4,8 @@ import pathlib
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
+from lib.multihost.ssh import SSHClient
+
 from ..host import BaseHost
 from ..utils.auth import HostAuthentication
 from ..utils.authselect import HostAuthselect
@@ -70,6 +72,21 @@ class BaseRole(object):
         :meta private:
         """
         pass
+
+    def ssh(self, user: str, password: str, *, shell='/bin/bash -c') -> SSHClient:
+        """
+        Open SSH connection to the host as given user.
+
+        :param user: Username.
+        :type user: str
+        :param password: User password.
+        :type password: str
+        :param shell: Shell that will run the commands, defaults to '/bin/bash -c'
+        :type shell: str, optional
+        :return: SSH client connection.
+        :rtype: SSHClient
+        """
+        return SSHClient(self.host.hostname, user=user, password=password, logger=self.mh.logger)
 
 
 class BaseObject(object):

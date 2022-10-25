@@ -1,4 +1,6 @@
-git+https://github.com/pbrezina/jc@id#egg=jc
+Colorama
+jc
+parallel-ssh
 pytest
 pytest_multihost
 python-ldap
