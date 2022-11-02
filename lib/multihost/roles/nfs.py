@@ -37,7 +37,7 @@ class NFS(LinuxRole):
         """
         Reexport all directories.
         """
-        self.host.exec('exportfs -r && exportfs -s')
+        self.host.ssh.run('exportfs -r && exportfs -s')
 
     def export(
         self,

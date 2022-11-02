@@ -119,7 +119,7 @@ class SambaObject(BaseObject):
         self.name = name
 
     def _exec(self, op: str, args: list[str] = list(), **kwargs) -> None:
-        return self.role.host.exec(['samba-tool', self.command, op, self.name, *args], **kwargs)
+        return self.role.host.ssh.exec(['samba-tool', self.command, op, self.name, *args], **kwargs)
 
     def _add(self, attrs: dict[str, tuple[BaseObject.cli, any]]) -> None:
         self._exec('add', self._build_args(attrs))

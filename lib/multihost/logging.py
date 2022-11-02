@@ -77,7 +77,7 @@ class MultihostLogger(logging.Logger):
         old_class = logging.getLoggerClass()
 
         logging.setLoggerClass(cls)
-        logger = logging.getLogger('lib.multihost')
+        logger = logging.getLogger('lib.multihost.logger')
         logging.setLoggerClass(old_class)
 
         return logger

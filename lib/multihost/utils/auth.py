@@ -66,7 +66,7 @@ class AuthBase(MultihostUtility):
         :return: Expect return code.
         :rtype: int
         """
-        result = self.host.exec('su --shell /bin/sh nobody -c "/bin/expect -d"', stdin=script, raise_on_error=False)
+        result = self.host.ssh.run('su --shell /bin/sh nobody -c "/bin/expect -d"', input=script, raise_on_error=False)
         return result.rc
 
 
@@ -184,7 +184,7 @@ class HostSudo(AuthBase):
         :return: True if the command was successful, False if the command failed or the user can not run sudo.
         :rtype: bool
         """
-        result = self.host.exec(f'su - "{username}" -c "sudo --stdin {command}"', stdin=password, raise_on_error=False)
+        result = self.host.ssh.run(f'su - "{username}" -c "sudo --stdin {command}"', input=password, raise_on_error=False)
 
         return result.rc == 0
 
@@ -201,7 +201,7 @@ class HostSudo(AuthBase):
         :return: True if the user can run sudo and allowed commands match expected commands (if set), False otherwise.
         :rtype: bool
         """
-        result = self.host.exec(f'su - "{username}" -c "sudo --stdin -l"', stdin=password, raise_on_error=False)
+        result = self.host.ssh.run(f'su - "{username}" -c "sudo --stdin -l"', input=password, raise_on_error=False)
         if result.rc != 0:
             return False
 

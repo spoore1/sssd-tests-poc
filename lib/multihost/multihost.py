@@ -75,7 +75,7 @@ class Multihost(object):
         Multihost configuration.
         """
 
-        self.logger: MultihostLogger = MultihostLogger.Setup(multihost.log_path)
+        self.logger: MultihostLogger = multihost.logger
         """
         Multihost logger.
         """

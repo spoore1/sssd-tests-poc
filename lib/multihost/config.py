@@ -1,10 +1,12 @@
 from __future__ import annotations
+from ast import Mult
 
 import logging
 
 import pytest_multihost
 
 from .host import ADHost, BaseHost, IPAHost, LDAPHost, NFSHost, SambaHost
+from .logging import MultihostLogger
 
 
 class MultihostDomain(pytest_multihost.config.Domain):
@@ -52,8 +54,9 @@ class MultihostConfig(pytest_multihost.config.Config):
 
     extra_init_args = {'log_path'}
 
-    def __init__(self, log_path: str = None, **kwargs) -> None:
-        self.log_path = log_path
+    def __init__(self, log_path: str | None = None, **kwargs) -> None:
+        self.log_path: str | None = log_path
+        self.logger: MultihostLogger = MultihostLogger.Setup(self.log_path)
         super().__init__(**kwargs)
 
     def get_domain_class(self):

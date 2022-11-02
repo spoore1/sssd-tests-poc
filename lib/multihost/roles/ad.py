@@ -3,7 +3,7 @@ from __future__ import annotations
 import textwrap
 from typing import TYPE_CHECKING
 
-from ..command import RemoteCommandResult
+from ..ssh import SSHProcessResult
 from ..host import ADHost
 from ..utils.ldap import HostLDAP
 from .base import BaseObject, WindowsRole
@@ -186,16 +186,16 @@ class ADObject(BaseObject):
 
         return f'{basedn},{self.role.host.naming_context}'
 
-    def _exec(self, op: str, args: list[str] | str = list(), **kwargs) -> RemoteCommandResult:
+    def _exec(self, op: str, args: list[str] | str = list(), **kwargs) -> SSHProcessResult:
         if isinstance(args, list):
             args = ' '.join(args)
         elif args is None:
             args = ''
 
-        return self.role.host.exec(textwrap.dedent(f'''
+        return self.role.host.ssh.run(f'''
             Import-Module ActiveDirectory
             {op}-AD{self.command_group} {args}
-        ''').strip(), **kwargs)
+        ''', **kwargs)
 
     def _add(self, attrs: dict[str, tuple[BaseObject.cli, any]]) -> None:
         self._exec('New', self._build_args(attrs))
@@ -509,10 +509,10 @@ class ADGroup(ADObject):
         :return: Self.
         :rtype: ADGroup
         """
-        self.role.host.exec(textwrap.dedent(f'''
+        self.role.host.ssh.run(f'''
             Import-Module ActiveDirectory
             Add-ADGroupMember -Identity '{self.dn}' -Members {self.__get_members(members)}
-        ''').strip())
+        ''')
         return self
 
     def remove_member(self, member: ADUser | ADGroup) -> ADGroup:
@@ -535,10 +535,10 @@ class ADGroup(ADObject):
         :return: Self.
         :rtype: ADGroup
         """
-        self.role.host.exec(textwrap.dedent(f'''
+        self.role.host.ssh.run(f'''
             Import-Module ActiveDirectory
             Remove-ADGroupMember -Confirm:$False -Identity '{self.dn}' -Members {self.__get_members(members)}
-        ''').strip())
+        ''')
         return self
 
     def __get_members(self, members: list[ADUser | ADGroup]) -> str:

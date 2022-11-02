@@ -1,10 +1,11 @@
 from __future__ import annotations
+from cmath import log
 
 import itertools
 import shlex
 import textwrap
 from enum import Enum, auto
-from typing import Any, Generator
+from typing import Any, Generator, Type
 
 import colorama as c
 import pssh.clients
@@ -36,366 +37,6 @@ class SSHLog(Enum):
     """
 
 
-class SSHClient(object):
-    """
-    Interactive SSH client.
-
-    .. code-block:: python
-        :caption: Example: Blocking call
-
-        # Connect to SSH server, it is automatically disconnected when leaving the with statement
-        with SSHClient(host, user=username, password=password, logger=logger) as ssh:
-            result = ssh.run('echo Hello World')
-            print(result.rc)
-            print(result.stdout)
-
-            result = ssh.run('cat', input='Hello World')
-            print(result.rc)
-            print(result.stdout)
-
-    .. code-block:: python
-        :caption: Example: Non-blocking call
-
-        # Connect to SSH server, it is automatically disconnected when leaving the with statement
-        with SSHClient(host, user=username, password=password, logger=logger) as ssh:
-            # The process is executed, but it does not block. In order to wait for it to finish, run process.wait()
-            process = ssh.async_run('echo Hello World')
-            result = process.wait()
-            print(result.rc)
-            print(result.stdout)
-
-            # You can write to stdin directly in asynchronous run
-            process = ssh.async_run('cat')
-            process.stdin.write('Hello World')
-            process.send_eof()
-            result = process.wait()
-            print(result.rc)
-            print(result.stdout)
-
-            # You can also work with inputs and outputs more interactively.
-            # The process is automatically waited when leaving the with statement.
-            with ssh.async_run('bash') as process:
-                process.stdin.write('echo Hello World\\n')
-                print(next(process.stdout))
-
-                process.stdin.write('echo This works as well\\n')
-                print(next(process.stdout))
-    """
-
-    def __init__(
-        self,
-        host: str,
-        *,
-        user: str,
-        password: str,
-        port: int = 22,
-        shell: str = '/usr/bin/bash -c',
-        logger: MultihostLogger,
-    ) -> None:
-        """
-        :param host: Host name to connect to.
-        :type host: BaseRole | str
-        :param user: Username to authenticate.
-        :type user: str
-        :param password: Password.
-        :type password: str
-        :param logger: Multihost logger.
-        :type logger: MultihostLogger
-        :param port: SSH port, defaults to 22
-        :type port: int, optional
-        :param shell: User shell used to run commands, defaults to '/usr/bin/bash -c'
-        :type shell: str, optional
-        """
-        self.host: str = host
-        self.user: str = user
-        self.password: str = password
-        self.port: int = port
-        self.shell: str = shell
-        self.logger: MultihostLogger = logger
-
-        self.__conn: pssh.clients.ssh.SSHClient | None = None
-
-    @property
-    def connected(self) -> bool:
-        """
-        :return: True if the client is connected, False otherwise.
-        :rtype: bool
-        """
-        return self.__conn is not None
-
-    @property
-    def conn(self) -> pssh.clients.ssh.SSHClient:
-        """
-        Low-level connection object.
-
-        :return: Parallel-ssh connection object.
-        :rtype: pssh.clients.ssh.SSHClient
-        """
-        if self.__conn is None:
-            RuntimeError('SSH client is not connected.')
-
-        return self.__conn
-
-    def connect(self) -> None:
-        """
-        Connect to the host.
-        """
-        if self.connected:
-            return
-
-        self.logger.info(
-            self.logger.colorize('Opening SSH connection to ', c.Style.BRIGHT)
-            + self.logger.colorize(self.host, c.Fore.BLUE, c.Style.BRIGHT)
-        )
-
-        self.__conn = pssh.clients.ssh.SSHClient(
-            host=self.host,
-            user=self.user,
-            password=self.password,
-            port=self.port,
-        )
-
-    def disconnect(self) -> None:
-        """
-        Disconnect client.
-        """
-        self.logger.info(
-            self.logger.colorize('Closing SSH connection to ', c.Style.BRIGHT)
-            + self.logger.colorize(self.host, c.Fore.BLUE, c.Style.BRIGHT)
-        )
-
-        if not self.connected:
-            return
-
-        self.__conn.disconnect()
-        self.__conn = None
-
-    def async_run(
-        self,
-        command: str,
-        *,
-        cwd: str = None,
-        env: dict[str, Any] = dict(),
-        input: str | None = None,
-        read_timeout: float = 30,
-        log_level: SSHLog = SSHLog.Full,
-    ) -> SSHProcess:
-        """
-        Non-blocking command call.
-
-        The command is run under shell specified in the constructor and it is
-        executed immediately, however it does not wait for the command to finish.
-
-        :param command: Command to run.
-        :type command: str
-        :param cwd: Working directory, defaults to None (= do not change)
-        :type cwd: str, optional
-        :param env: Additional environment variables, defaults to dict()
-        :type env: dict[str, Any], optional
-        :param input: Content of standard input, defaults to None
-        :type input: str | None, optional
-        :param read_timeout: Timeout in seconds, how long should the client wait for output, defaults to 30 seconds
-        :type read_timeout: float, optional
-        :param log_level: Log level, defaults to SSHLog.Full
-        :type log_level: SSHLog, optional
-        :return: Instance of :class:`SSHProcess`, the process is already running.
-        :rtype: SSHProcess
-        """
-        self.connect()
-
-        process = SSHProcess(
-            command=command,
-            cwd=cwd,
-            env=env,
-            input=input,
-            shell=self.shell,
-            conn=self.conn,
-            read_timeout=read_timeout,
-            logger=self.logger,
-            log_level=log_level,
-            sync_exec=False,
-        )
-
-        process.run()
-        return process
-
-    def run(
-        self,
-        command: str,
-        *,
-        cwd: str = None,
-        env: dict[str, Any] = dict(),
-        input: str | None = None,
-        read_timeout: float = 2,
-        log_level: SSHLog = SSHLog.Full,
-        raise_on_error: bool = True,
-    ) -> SSHProcessResult:
-        """
-        Blocking command call.
-
-        The command is run under shell specified in the constructor and it is
-        executed immediately. It waits for the command to finish and returns
-        its result.
-
-        :param command: Command to run.
-        :type command: str
-        :param cwd: Working directory, defaults to None (= do not change)
-        :type cwd: str, optional
-        :param env: Additional environment variables, defaults to dict()
-        :type env: dict[str, Any], optional
-        :param input: Content of standard input, defaults to None
-        :type input: str | None, optional
-        :param read_timeout: Timeout in seconds, how long should the client wait
-            for output, defaults to 30 seconds
-        :type read_timeout: float, optional
-        :param log_level: Log level, defaults to SSHLog.Full
-        :type log_level: SSHLog, optional
-        :param raise_on_failure: If True, raise :class:`SSHProcessError` if command exited with non-zero return code.
-        :type log_level: SSHLog, optional
-        :return: Command result.
-        :rtype: SSHProcessResult
-        """
-        self.connect()
-
-        process = SSHProcess(
-            command=command,
-            cwd=cwd,
-            env=env,
-            input=input,
-            shell=self.shell,
-            conn=self.conn,
-            read_timeout=read_timeout,
-            logger=self.logger,
-            log_level=log_level,
-            sync_exec=True,
-        )
-
-        process.run()
-
-        return process.wait(raise_on_error=raise_on_error)
-
-    def async_exec(
-        self,
-        argv: list[Any],
-        *,
-        cwd: str = None,
-        env: dict[str, Any] = dict(),
-        input: str | None = None,
-        read_timeout: float = 2,
-        log_level: SSHLog = SSHLog.Full,
-    ) -> SSHProcess:
-        """
-        Non-blocking command call.
-
-        The command is run under shell specified in the constructor and it is
-        executed immediately, however it does not wait for the command to finish.
-
-        The command is provided as ``argv`` list.
-
-        :param argv: Command to run.
-        :type argv: str
-        :param cwd: Working directory, defaults to None (= do not change)
-        :type cwd: str, optional
-        :param env: Additional environment variables, defaults to dict()
-        :type env: dict[str, Any], optional
-        :param input: Content of standard input, defaults to None
-        :type input: str | None, optional
-        :param read_timeout: Timeout in seconds, how long should the client wait for output, defaults to 30 seconds
-        :type read_timeout: float, optional
-        :param log_level: Log level, defaults to SSHLog.Full
-        :type log_level: SSHLog, optional
-        :return: Instance of :class:`SSHProcess`, the process is already running.
-        :rtype: SSHProcess
-        """
-        argv = [str(x) for x in argv]
-        command = shlex.join(argv)
-
-        return self.async_run(
-            command,
-            cwd=cwd,
-            env=env,
-            input=input,
-            read_timeout=read_timeout,
-            log_level=log_level,
-        )
-
-    def exec(
-        self,
-        argv: list[Any],
-        *,
-        cwd: str = None,
-        env: dict[str, Any] = dict(),
-        input: str | None = None,
-        read_timeout: float = 2,
-        log_level: SSHLog = SSHLog.Full,
-        raise_on_error: bool = True,
-    ) -> SSHProcessResult:
-        """
-        Blocking command call.
-
-        The command is run under shell specified in the constructor and it is
-        executed immediately. It waits for the command to finish and returns
-        its result.
-
-        The command is provided as ``argv`` list.
-
-        :param argv: Command to run.
-        :type argv: str
-        :param cwd: Working directory, defaults to None (= do not change)
-        :type cwd: str, optional
-        :param env: Additional environment variables, defaults to dict()
-        :type env: dict[str, Any], optional
-        :param input: Content of standard input, defaults to None
-        :type input: str | None, optional
-        :param read_timeout: Timeout in seconds, how long should the client wait
-            for output, defaults to 30 seconds
-        :type read_timeout: float, optional
-        :param log_level: Log level, defaults to SSHLog.Full
-        :type log_level: SSHLog, optional
-        :param raise_on_failure: If True, raise :class:`SSHProcessError` if command exited with non-zero return code.
-        :type log_level: SSHLog, optional
-        :return: Command result.
-        :rtype: SSHProcessResult
-        """
-        process = self.async_exec(
-            argv,
-            cwd=cwd,
-            env=env,
-            input=input,
-            read_timeout=read_timeout,
-            log_level=log_level,
-        )
-
-        return process.wait(raise_on_error=raise_on_error)
-
-    def expect(self, expect_script: str) -> SSHProcessResult:
-        """
-        Run expect script.
-
-        :param expect_script: Expect script.
-        :type expect_script: str
-        :return: Expect script result.
-        :rtype: SSHProcessResult
-        """
-        return self.run('/bin/expect -d', input=expect_script, raise_on_error=False)
-
-    def __enter__(self) -> SSHClient:
-        """
-        Connect to the host.
-
-        :return: SSHClient instance.
-        :rtype: SSHClient
-        """
-        self.connect()
-        return self
-
-    def __exit__(self, exception_type, exception_value, traceback) -> None:
-        """
-        Disconnect.
-        """
-        self.disconnect()
-
-
 class SSHProcess(object):
     """
     SSH Process.
@@ -417,7 +58,7 @@ class SSHProcess(object):
         cwd: str = None,
         env: dict[str, Any] = dict(),
         input: str | None = None,
-        shell: str = '/usr/bin/bash -c',
+        shell: str | None = None,
         conn: pssh.clients.ssh.SSHClient,
         read_timeout: float,
         logger: MultihostLogger,
@@ -427,6 +68,14 @@ class SSHProcess(object):
         """
         :param command: Command to execute.
         :type command: str
+        :param cwd: Working directory, defaults to None
+        :type cwd: str, optional
+        :param env: Additional environment variables, defaults to dict()
+        :type env: dict[str, Any], optional
+        :param input: Content of standard input, defaults to None
+        :type input: str | None, optional
+        :param shell: Shell used to execute the command, defaults to None (use user's login shell)
+        :type shell: str | None, optional
         :param conn: Connected SSH client.
         :type conn: pssh.clients.ssh.SSHClient
         :param read_timeout: Timeout in seconds, how long should the client wait
@@ -438,14 +87,6 @@ class SSHProcess(object):
         :type log_level: SSHLog
         :param sync_exec: Is this a blocking execution?
         :type sync_exec: bool
-        :param cwd: Working directory, defaults to None
-        :type cwd: str, optional
-        :param env: Additional environment variables, defaults to dict()
-        :type env: dict[str, Any], optional
-        :param input: Content of standard input, defaults to None
-        :type input: str | None, optional
-        :param shell: Shell used to execute the command, defaults to '/usr/bin/bash -c'
-        :type shell: str, optional
         """
         self.__conn: pssh.clients.ssh.SSHClient = conn
         self.__process: pssh.output.HostOutput | None = None
@@ -549,10 +190,12 @@ class SSHProcess(object):
         :return: Self.
         :rtype: SSHProcess
         """
-        complete_command = self.__build_complete_command(
-            self.command,
-            cwd=self.cwd,
-            env=self.env
+        complete_command = self._escape_command(
+            self._build_complete_command(
+                self.command,
+                cwd=self.cwd,
+                env=self.env
+            )
         )
 
         if self.__log_level != SSHLog.Silent:
@@ -608,7 +251,10 @@ class SSHProcess(object):
         list(self.stdout)
         list(self.stderr)
 
-        result = SSHProcessResult(self.__process.exit_code, self.__stdout, self.__stderr)
+        # Get exit code.
+        code = self.__conn._eagain_errcode(self.__process.channel.get_exit_status, -1)
+
+        result = SSHProcessResult(code, self.__stdout, self.__stderr)
 
         if self.__sync_exec:
             match self.__log_level:
@@ -681,7 +327,7 @@ class SSHProcess(object):
 
         self.__process.channel.send_eof()
 
-    def __build_complete_command(self, command: str, *, cwd: str | None, env: dict[str, Any]) -> str:
+    def _build_complete_command(self, command: str, *, cwd: str | None, env: dict[str, Any]) -> str:
         out = ''
 
         # Set environment variables
@@ -690,7 +336,7 @@ class SSHProcess(object):
 
         # Set working directory
         if cwd is not None:
-            out += f"cd '{shlex.quote(cwd)}'\n"
+            out += f"cd {shlex.quote(cwd)}\n"
 
         if out:
             out += '\n'
@@ -698,6 +344,15 @@ class SSHProcess(object):
         out += command
 
         return out
+
+    def _escape_command(self, command: str) -> str:
+        """
+        pssh simply calls the command as $shell '$command', e.g.
+        bash -c '$command'
+
+        We need to escape ' inside the command to make it work correctly.
+        """
+        return command.replace("'", "'\"'\"'")
 
     def __msg_id(self) -> str:
         return self.__logger.colorize(f"#{self.id}", c.Style.BRIGHT, c.Fore.BLUE)
@@ -713,8 +368,7 @@ class SSHProcess(object):
             + self.__msg_id()
 
     def __msg_completed_sync(self, rc: int) -> str:
-        return self.__logger.colorize('Previous command completed with exit code ', c.Style.BRIGHT) \
-            + self.__msg_rc(rc)
+        return 'Previous command completed with exit code ' + self.__msg_rc(rc)
 
     def __msg_completed_async(self, rc: int) -> str:
         return self.__logger.colorize('Command ', c.Style.BRIGHT) \
@@ -727,6 +381,65 @@ class SSHProcess(object):
 
     def __exit__(self, *exc_info):
         self.wait()
+
+
+class SSHBashProcess(SSHProcess):
+    """
+    SSH Process with Bash.
+
+    .. note::
+
+        You should not create instances of this class yourself. Use method
+        :meth:`SSHClient.run`, :meth:`SSHClient.exec`,
+        :meth:`SSHClient.async_run` and :meth:`SSHClient.async_exec` from
+        :class:`SSHClient` to execute a command over SSH.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs, shell='/usr/bin/bash -c')
+
+
+class SSHPowerShellProcess(SSHProcess):
+    """
+    SSH Process with Powershell.
+
+    .. note::
+
+        You should not create instances of this class yourself. Use method
+        :meth:`SSHClient.run`, :meth:`SSHClient.exec`,
+        :meth:`SSHClient.async_run` and :meth:`SSHClient.async_exec` from
+        :class:`SSHClient` to execute a command over SSH.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs, shell='powershell -NonInteractive -Command')
+
+    def _build_complete_command(self, command: str, *, cwd: str | None, env: dict[str, Any]) -> str:
+        out = ''
+
+        # Set environment variables
+        for key, value in env.items():
+            out += f'$Env:{key} = {shlex.quote(str(value))}\n'
+
+        # Set working directory
+        if cwd is not None:
+            out += f"cd {shlex.quote(cwd)}\n"
+
+        if out:
+            out += '\n'
+
+        out += command
+
+        return out
+
+    def _escape_command(self, command: str) -> str:
+        """
+        pssh simply calls the command as $shell '$command', e.g.
+        bash -c '$command'
+
+        We need to escape ' inside the command to make it work correctly.
+        """
+        return command.replace("'", "''").replace('"', '\\"')
 
 
 class SSHProcessResult(object):
@@ -791,3 +504,375 @@ class SSHProcessError(Exception):
         self.input = input
         self.stdout = stdout
         self.stderr = stderr
+
+
+class SSHClient(object):
+    """
+    Interactive SSH client.
+
+    .. code-block:: python
+        :caption: Example: Blocking call
+
+        # Connect to SSH server, it is automatically disconnected when leaving the with statement
+        with SSHClient(host, user=username, password=password, logger=logger) as ssh:
+            result = ssh.run('echo Hello World')
+            print(result.rc)
+            print(result.stdout)
+
+            result = ssh.run('cat', input='Hello World')
+            print(result.rc)
+            print(result.stdout)
+
+    .. code-block:: python
+        :caption: Example: Non-blocking call
+
+        # Connect to SSH server, it is automatically disconnected when leaving the with statement
+        with SSHClient(host, user=username, password=password, logger=logger) as ssh:
+            # The process is executed, but it does not block. In order to wait for it to finish, run process.wait()
+            process = ssh.async_run('echo Hello World')
+            result = process.wait()
+            print(result.rc)
+            print(result.stdout)
+
+            # You can write to stdin directly in asynchronous run
+            process = ssh.async_run('cat')
+            process.stdin.write('Hello World')
+            process.send_eof()
+            result = process.wait()
+            print(result.rc)
+            print(result.stdout)
+
+            # You can also work with inputs and outputs more interactively.
+            # The process is automatically waited when leaving the with statement.
+            with ssh.async_run('bash') as process:
+                process.stdin.write('echo Hello World\\n')
+                print(next(process.stdout))
+
+                process.stdin.write('echo This works as well\\n')
+                print(next(process.stdout))
+    """
+
+    def __init__(
+        self,
+        host: str,
+        *,
+        user: str,
+        password: str,
+        port: int = 22,
+        shell: Type[SSHProcess] = SSHProcess,
+        logger: MultihostLogger,
+    ) -> None:
+        """
+        :param host: Host name to connect to.
+        :type host: BaseRole | str
+        :param user: Username to authenticate.
+        :type user: str
+        :param password: Password.
+        :type password: str
+        :param logger: Multihost logger.
+        :type logger: MultihostLogger
+        :param port: SSH port, defaults to 22
+        :type port: int, optional
+        :param shell: User shell used to run commands, defaults to '/usr/bin/bash -c'
+        :type shell: str, optional
+        """
+        self.host: str = host
+        self.user: str = user
+        self.password: str = password
+        self.port: int = port
+        self.shell: Type[SSHProcess] = shell
+        self.logger: MultihostLogger = logger
+
+        self.__conn: pssh.clients.ssh.SSHClient | None = None
+
+    @property
+    def connected(self) -> bool:
+        """
+        :return: True if the client is connected, False otherwise.
+        :rtype: bool
+        """
+        return self.__conn is not None
+
+    @property
+    def conn(self) -> pssh.clients.ssh.SSHClient:
+        """
+        Low-level connection object.
+
+        :return: Parallel-ssh connection object.
+        :rtype: pssh.clients.ssh.SSHClient
+        """
+        if self.__conn is None:
+            RuntimeError('SSH client is not connected.')
+
+        return self.__conn
+
+    def connect(self) -> None:
+        """
+        Connect to the host.
+        """
+        if self.connected:
+            return
+
+        self.logger.info(
+            self.logger.colorize('Opening SSH connection to ', c.Style.BRIGHT)
+            + self.logger.colorize(self.host, c.Fore.BLUE, c.Style.BRIGHT)
+        )
+
+        self.__conn = pssh.clients.ssh.SSHClient(
+            host=self.host,
+            user=self.user,
+            password=self.password,
+            port=self.port,
+        )
+
+    def disconnect(self) -> None:
+        """
+        Disconnect client.
+        """
+        self.logger.info(
+            self.logger.colorize('Closing SSH connection to ', c.Style.BRIGHT)
+            + self.logger.colorize(self.host, c.Fore.BLUE, c.Style.BRIGHT)
+        )
+
+        if not self.connected:
+            return
+
+        self.__conn.disconnect()
+        self.__conn = None
+
+    def async_run(
+        self,
+        command: str,
+        *,
+        cwd: str = None,
+        env: dict[str, Any] = dict(),
+        input: str | None = None,
+        read_timeout: float = 30,
+        log_level: SSHLog = SSHLog.Full,
+    ) -> SSHProcess:
+        """
+        Non-blocking command call.
+
+        The command is run under shell specified in the constructor and it is
+        executed immediately, however it does not wait for the command to finish.
+
+        :param command: Command to run.
+        :type command: str
+        :param cwd: Working directory, defaults to None (= do not change)
+        :type cwd: str, optional
+        :param env: Additional environment variables, defaults to dict()
+        :type env: dict[str, Any], optional
+        :param input: Content of standard input, defaults to None
+        :type input: str | None, optional
+        :param read_timeout: Timeout in seconds, how long should the client wait for output, defaults to 30 seconds
+        :type read_timeout: float, optional
+        :param log_level: Log level, defaults to SSHLog.Full
+        :type log_level: SSHLog, optional
+        :return: Instance of :class:`SSHProcess`, the process is already running.
+        :rtype: SSHProcess
+        """
+        if not isinstance(command, str):
+            raise ValueError('Parameter command is not a string, did you mean async_exec() instead of async_run()?')
+
+        self.connect()
+
+        process = self.shell(
+            command=command,
+            cwd=cwd,
+            env=env,
+            input=input,
+            conn=self.conn,
+            read_timeout=read_timeout,
+            logger=self.logger,
+            log_level=log_level,
+            sync_exec=False,
+        )
+
+        process.run()
+        return process
+
+    def run(
+        self,
+        command: str,
+        *,
+        cwd: str = None,
+        env: dict[str, Any] = dict(),
+        input: str | None = None,
+        read_timeout: float = 2,
+        log_level: SSHLog = SSHLog.Full,
+        raise_on_error: bool = True,
+    ) -> SSHProcessResult:
+        """
+        Blocking command call.
+
+        The command is run under shell specified in the constructor and it is
+        executed immediately. It waits for the command to finish and returns
+        its result.
+
+        :param command: Command to run.
+        :type command: str
+        :param cwd: Working directory, defaults to None (= do not change)
+        :type cwd: str, optional
+        :param env: Additional environment variables, defaults to dict()
+        :type env: dict[str, Any], optional
+        :param input: Content of standard input, defaults to None
+        :type input: str | None, optional
+        :param read_timeout: Timeout in seconds, how long should the client wait
+            for output, defaults to 30 seconds
+        :type read_timeout: float, optional
+        :param log_level: Log level, defaults to SSHLog.Full
+        :type log_level: SSHLog, optional
+        :param raise_on_failure: If True, raise :class:`SSHProcessError` if command exited with non-zero return code.
+        :type log_level: SSHLog, optional
+        :return: Command result.
+        :rtype: SSHProcessResult
+        """
+        if not isinstance(command, str):
+            raise ValueError('Parameter command is not a string, did you mean exec() instead of run()?')
+
+        self.connect()
+
+        process = self.shell(
+            command=command,
+            cwd=cwd,
+            env=env,
+            input=input,
+            conn=self.conn,
+            read_timeout=read_timeout,
+            logger=self.logger,
+            log_level=log_level,
+            sync_exec=True,
+        )
+
+        process.run()
+
+        return process.wait(raise_on_error=raise_on_error)
+
+    def async_exec(
+        self,
+        argv: list[Any],
+        *,
+        cwd: str = None,
+        env: dict[str, Any] = dict(),
+        input: str | None = None,
+        read_timeout: float = 2,
+        log_level: SSHLog = SSHLog.Full,
+    ) -> SSHProcess:
+        """
+        Non-blocking command call.
+
+        The command is run under shell specified in the constructor and it is
+        executed immediately, however it does not wait for the command to finish.
+
+        The command is provided as ``argv`` list.
+
+        :param argv: Command to run.
+        :type argv: str
+        :param cwd: Working directory, defaults to None (= do not change)
+        :type cwd: str, optional
+        :param env: Additional environment variables, defaults to dict()
+        :type env: dict[str, Any], optional
+        :param input: Content of standard input, defaults to None
+        :type input: str | None, optional
+        :param read_timeout: Timeout in seconds, how long should the client wait for output, defaults to 30 seconds
+        :type read_timeout: float, optional
+        :param log_level: Log level, defaults to SSHLog.Full
+        :type log_level: SSHLog, optional
+        :return: Instance of :class:`SSHProcess`, the process is already running.
+        :rtype: SSHProcess
+        """
+        if not isinstance(argv, list):
+            raise ValueError('Parameter argv is not a list, did you mean async_run() instead of async_exec()?')
+
+        argv = [str(x) for x in argv]
+        command = shlex.join(argv)
+
+        return self.async_run(
+            command,
+            cwd=cwd,
+            env=env,
+            input=input,
+            read_timeout=read_timeout,
+            log_level=log_level,
+        )
+
+    def exec(
+        self,
+        argv: list[Any],
+        *,
+        cwd: str = None,
+        env: dict[str, Any] = dict(),
+        input: str | None = None,
+        read_timeout: float = 2,
+        log_level: SSHLog = SSHLog.Full,
+        raise_on_error: bool = True,
+    ) -> SSHProcessResult:
+        """
+        Blocking command call.
+
+        The command is run under shell specified in the constructor and it is
+        executed immediately. It waits for the command to finish and returns
+        its result.
+
+        The command is provided as ``argv`` list.
+
+        :param argv: Command to run.
+        :type argv: str
+        :param cwd: Working directory, defaults to None (= do not change)
+        :type cwd: str, optional
+        :param env: Additional environment variables, defaults to dict()
+        :type env: dict[str, Any], optional
+        :param input: Content of standard input, defaults to None
+        :type input: str | None, optional
+        :param read_timeout: Timeout in seconds, how long should the client wait
+            for output, defaults to 30 seconds
+        :type read_timeout: float, optional
+        :param log_level: Log level, defaults to SSHLog.Full
+        :type log_level: SSHLog, optional
+        :param raise_on_failure: If True, raise :class:`SSHProcessError` if command exited with non-zero return code.
+        :type log_level: SSHLog, optional
+        :return: Command result.
+        :rtype: SSHProcessResult
+        """
+        if not isinstance(argv, list):
+            raise ValueError('Parameter argv is not a list, did you mean run() instead of exec()?')
+
+        argv = [str(x) for x in argv]
+        command = shlex.join(argv)
+
+        return self.run(
+            command,
+            cwd=cwd,
+            env=env,
+            input=input,
+            read_timeout=read_timeout,
+            log_level=log_level,
+            raise_on_error=raise_on_error
+        )
+
+    def expect(self, expect_script: str) -> SSHProcessResult:
+        """
+        Run expect script.
+
+        :param expect_script: Expect script.
+        :type expect_script: str
+        :return: Expect script result.
+        :rtype: SSHProcessResult
+        """
+        return self.run('/bin/expect -d', input=expect_script, raise_on_error=False)
+
+    def __enter__(self) -> SSHClient:
+        """
+        Connect to the host.
+
+        :return: SSHClient instance.
+        :rtype: SSHClient
+        """
+        self.connect()
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback) -> None:
+        """
+        Disconnect.
+        """
+        self.disconnect()

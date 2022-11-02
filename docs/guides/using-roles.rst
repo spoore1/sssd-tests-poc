@@ -461,10 +461,10 @@ needed, you can also run commands on the host directly:
         @pytest.mark.topology(KnownTopology.AD)
         def test_client(client: Client, ad: AD):
             # Commands are executed in bash on Linux systems
-            client.host.exec('echo "test"')
+            client.host.ssh.run('echo "test"')
 
             # And in Powershell on Windows
-            ad.host.exec('Write-Output "test"')
+            ad.host.ssh.run('Write-Output "test"')
 
 .. seealso::
 

@@ -26,8 +26,8 @@ class HostAuthselect(MultihostUtility):
         :meta private:
         """
         if self.__backup is not None:
-            self.host.exec(['authselect', 'backup-restore', self.__backup])
-            self.host.exec(['rm', '-fr', f'/var/lib/authselect/backups/{self.__backup}'])
+            self.host.ssh.exec(['authselect', 'backup-restore', self.__backup])
+            self.host.ssh.exec(['rm', '-fr', f'/var/lib/authselect/backups/{self.__backup}'])
             self.__backup = None
 
         super().teardown()
@@ -38,4 +38,4 @@ class HostAuthselect(MultihostUtility):
             self.__backup = 'multihost.backup'
             backup = [f'--backup={self.__backup}']
 
-        self.host.exec(['authselect', 'select', profile, *features, '--force', *backup])
+        self.host.ssh.exec(['authselect', 'select', profile, *features, '--force', *backup])

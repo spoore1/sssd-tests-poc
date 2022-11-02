@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..command import RemoteCommandResult
+from ..ssh import SSHLog, SSHProcessResult, SSHProcess
 from ..host import BaseHost
 from .base import MultihostUtility
 
@@ -16,14 +16,30 @@ class HostService(MultihostUtility):
 
     def teardown(self) -> None:
         # Restart all services that were touched
+        self.reload_daemon()
         for service, state in self.initial_states.items():
-            self.__systemctl('stop', service, raise_on_error=False, wait=True)
+            self.host.ssh.run(f'systemctl stop "{service}" || systemctl status "{service}"', raise_on_error=False)
             if state:
-                self.__systemctl('start', service, raise_on_error=False, wait=True)
+                self.host.ssh.run(f'systemctl start "{service}" || systemctl status "{service}"', raise_on_error=False)
 
-    def start(self, service: str, raise_on_error: bool = True, wait: bool = True) -> RemoteCommandResult:
+    def async_start(self, service: str) -> SSHProcess:
         """
-        Start a systemd unit.
+        Start a systemd unit. Non-blocking call.
+
+        ``systemctl status $unit`` is called automatically if the unit can not
+        be started. The status is then visible in the logs.
+
+        :param service: Unit name.
+        :type service: str
+        :return: Running SSH process.
+        :rtype: SSHProcess
+        """
+        self.__set_initial_state(service)
+        return self.host.ssh.async_run(f'systemctl start "{service}" || systemctl status "{service}"')
+
+    def start(self, service: str, raise_on_error: bool = True) -> SSHProcessResult:
+        """
+        Start a systemd unit. The call will wait until the operation is finished.
 
         ``systemctl status $unit`` is called automatically if the unit can not
         be started. The status is then visible in the logs.
@@ -32,36 +48,68 @@ class HostService(MultihostUtility):
         :type service: str
         :param raise_on_error: Raise exception on error, defaults to True
         :type raise_on_error: bool, optional
-        :param wait: Wait for the command to finish, defaults to True
-        :type wait: bool, optional
-        :return: Remote command result.
-        :rtype: RemoteCommandResult
+        :return: SSH process result.
+        :rtype: SSHProcessResult
         """
         self.__set_initial_state(service)
-        return self.__systemctl('start', service, raise_on_error, wait)
+        return self.host.ssh.run(
+            f'systemctl start "{service}" || systemctl status "{service}"',
+            raise_on_error=raise_on_error
+        )
 
-    def stop(self, service: str, raise_on_error: bool = True, wait: bool = True) -> RemoteCommandResult:
+    def async_stop(self, service: str) -> SSHProcess:
         """
-        Stop a systemd unit.
+        Stop a systemd unit. Non-blocking call.
 
         ``systemctl status $unit`` is called automatically if the unit can not
         be stopped. The status is then visible in the logs.
 
         :param service: Unit name.
         :type service: str
-        :param raise_on_error: Raise exception on error, defaults to True
-        :type raise_on_error: bool, optional
-        :param wait: Wait for the command to finish, defaults to True
-        :type wait: bool, optional
-        :return: Remote command result.
-        :rtype: RemoteCommandResult
+        :return: Running SSH process.
+        :rtype: SSHProcess
         """
         self.__set_initial_state(service)
-        return self.__systemctl('stop', service, raise_on_error, wait)
+        return self.host.ssh.async_run(f'systemctl stop "{service}" || systemctl status "{service}"')
 
-    def restart(self, service: str, raise_on_error: bool = True, wait: bool = True) -> RemoteCommandResult:
+    def stop(self, service: str, raise_on_error: bool = True) -> SSHProcessResult:
         """
-        Restart a systemd unit.
+        Stop a systemd unit. The call will wait until the operation is finished.
+
+        ``systemctl status $unit`` is called automatically if the unit can not
+        be stoped. The status is then visible in the logs.
+
+        :param service: Unit name.
+        :type service: str
+        :param raise_on_error: Raise exception on error, defaults to True
+        :type raise_on_error: bool, optional
+        :return: SSH process result.
+        :rtype: SSHProcessResult
+        """
+        self.__set_initial_state(service)
+        return self.host.ssh.run(
+            f'systemctl stop "{service}" || systemctl status "{service}"',
+            raise_on_error=raise_on_error
+        )
+
+    def async_restart(self, service: str) -> SSHProcess:
+        """
+        Restart a systemd unit. Non-blocking call.
+
+        ``systemctl status $unit`` is called automatically if the unit can not
+        be restarted. The status is then visible in the logs.
+
+        :param service: Unit name.
+        :type service: str
+        :return: Running SSH process.
+        :rtype: SSHProcess
+        """
+        self.__set_initial_state(service)
+        return self.host.ssh.async_run(f'systemctl restart "{service}" || systemctl status "{service}"')
+
+    def restart(self, service: str, raise_on_error: bool = True) -> SSHProcessResult:
+        """
+        Restart a systemd unit. The call will wait until the operation is finished.
 
         ``systemctl status $unit`` is called automatically if the unit can not
         be restarted. The status is then visible in the logs.
@@ -70,17 +118,32 @@ class HostService(MultihostUtility):
         :type service: str
         :param raise_on_error: Raise exception on error, defaults to True
         :type raise_on_error: bool, optional
-        :param wait: Wait for the command to finish, defaults to True
-        :type wait: bool, optional
-        :return: Remote command result.
-        :rtype: RemoteCommandResult
+        :return: SSH process result.
+        :rtype: SSHProcessResult
         """
         self.__set_initial_state(service)
-        return self.__systemctl('restart', service, raise_on_error, wait)
+        return self.host.ssh.run(
+            f'systemctl restart "{service}" || systemctl status "{service}"',
+            raise_on_error=raise_on_error
+        )
 
-    def reload(self, service: str, raise_on_error: bool = True, wait: bool = True) -> RemoteCommandResult:
+    def async_reload(self, service: str) -> SSHProcess:
         """
-        Reload a systemd unit.
+        Reload a systemd unit. Non-blocking call.
+
+        ``systemctl status $unit`` is called automatically if the unit can not
+        be reloaded. The status is then visible in the logs.
+
+        :param service: Unit name.
+        :type service: str
+        :return: Running SSH process.
+        :rtype: SSHProcess
+        """
+        return self.host.ssh.async_run(f'systemctl reload "{service}" || systemctl status "{service}"')
+
+    def reload(self, service: str, raise_on_error: bool = True) -> SSHProcessResult:
+        """
+        Reload a systemd unit. The call will wait until the operation is finished.
 
         ``systemctl status $unit`` is called automatically if the unit can not
         be reloaded. The status is then visible in the logs.
@@ -89,58 +152,67 @@ class HostService(MultihostUtility):
         :type service: str
         :param raise_on_error: Raise exception on error, defaults to True
         :type raise_on_error: bool, optional
-        :param wait: Wait for the command to finish, defaults to True
-        :type wait: bool, optional
-        :return: Remote command result.
-        :rtype: RemoteCommandResult
+        :return: SSH process result.
+        :rtype: SSHProcessResult
         """
-        return self.__systemctl('reload', service, raise_on_error, wait)
+        return self.host.ssh.run(
+            f'systemctl reload "{service}" || systemctl status "{service}"',
+            raise_on_error=raise_on_error
+        )
 
-    def status(self, service: str, raise_on_error: bool = False, wait: bool = True) -> RemoteCommandResult:
+    def async_status(self, service: str) -> SSHProcess:
         """
-        Get systemd unit status.
+        Get systemd unit status. Non-blocking call.
+
+        :param service: Unit name.
+        :type service: str
+        :return: Running SSH process.
+        :rtype: SSHProcess
+        """
+        return self.host.ssh.async_run(f'systemctl status "{service}"')
+
+    def status(self, service: str, raise_on_error: bool = True) -> SSHProcessResult:
+        """
+        Get systemd unit status. The call will wait until the operation is finished.
 
         :param service: Unit name.
         :type service: str
         :param raise_on_error: Raise exception on error, defaults to True
         :type raise_on_error: bool, optional
-        :param wait: Wait for the command to finish, defaults to True
-        :type wait: bool, optional
-        :return: Remote command result.
-        :rtype: RemoteCommandResult
+        :return: SSH process result.
+        :rtype: SSHProcessResult
         """
-        return self.host.exec(['systemctl', 'status', service], raise_on_error=raise_on_error, wait=wait)
+        return self.host.ssh.run(
+            f'systemctl status "{service}"',
+            raise_on_error=raise_on_error
+        )
 
-    def reload_daemon(self, raise_on_error: bool = False, wait: bool = True) -> RemoteCommandResult:
+    def async_reload_daemon(self) -> SSHProcess:
         """
-        Reload systemd daemon to refresh unit files.
+        Reload systemd daemon to refresh unit files. Non-blocking call.
 
-        :param service: Unit name.
-        :type service: str
+        :return: Running SSH process.
+        :rtype: SSHProcess
+        """
+        return self.host.ssh.async_run(f'systemctl daemon-reload')
+
+    def reload_daemon(self, raise_on_error: bool = True) -> SSHProcessResult:
+        """
+        Reload systemd daemon to refresh unit files. The call will wait until the operation is finished.
+
         :param raise_on_error: Raise exception on error, defaults to True
         :type raise_on_error: bool, optional
-        :param wait: Wait for the command to finish, defaults to True
-        :type wait: bool, optional
-        :return: Remote command result.
-        :rtype: RemoteCommandResult
+        :return: SSH process result.
+        :rtype: SSHProcessResult
         """
-        return self.host.exec(['systemctl', 'daemon-reload'], raise_on_error=raise_on_error, wait=wait)
-
-    def __systemctl(self, command: str, service: str, raise_on_error: bool, wait: bool) -> RemoteCommandResult:
-        try:
-            result = self.host.exec(['systemctl', command, service], raise_on_error=raise_on_error, wait=wait)
-            if result.rc != 0:
-                self.status(service)
-        except Exception:
-            # Get service status to see why it failed
-            self.status(service)
-            raise
-
-        return result
+        return self.host.ssh.run(
+            f'systemctl daemon-reload',
+            raise_on_error=raise_on_error
+        )
 
     def __set_initial_state(self, service: str) -> None:
         if service in self.initial_states:
             return
 
-        result = self.status(service, raise_on_error=False)
+        result = self.host.ssh.run(f'systemctl status "{service}"', log_level=SSHLog.Silent, raise_on_error=False)
         self.initial_states[service] = result.rc == 0

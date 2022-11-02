@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 
 from ..host import BaseHost
+from ..logging import MultihostLogger
 
 
 class MultihostUtility(object):
@@ -23,6 +24,7 @@ class MultihostUtility(object):
         :type host: BaseHost
         """
         self.host = host
+        self.logger: MultihostLogger = self.host.logger
 
     def setup(self) -> None:
         """

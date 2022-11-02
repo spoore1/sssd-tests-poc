@@ -42,7 +42,7 @@ class HostAutomount(MultihostUtility):
         :rtype: bool
         """
 
-        result = self.host.exec(rf'''
+        result = self.host.ssh.run(rf'''
         set -ex
         pushd "{path}"
         mount | grep "{export.hostname}:{export.fullpath} on {path}"
@@ -90,7 +90,7 @@ class HostAutomount(MultihostUtility):
         :return: Parsed ``automount -m`` output.
         :rtype: dict[str, dict[str, list[str]]]
         """
-        result = self.host.exec('automount -m')
+        result = self.host.ssh.run('automount -m')
 
         def parse_result(lines: list[str]) -> dict[str, dict[str, list[str]]]:
             mountpoints = {}

@@ -273,7 +273,7 @@ class HostTools(MultihostUtility):
         :return: id data, None if not found
         :rtype: IdEntry | None
         """
-        command = self.host.exec(['id', name], raise_on_error=False)
+        command = self.host.ssh.exec(['id', name], raise_on_error=False)
         if command.rc != 0:
             return None
 
@@ -288,7 +288,7 @@ class HostTools(MultihostUtility):
         :return: Return code.
         :rtype: int
         """
-        result = self.host.exec('/bin/expect', stdin=script, raise_on_error=False)
+        result = self.host.ssh.run('/bin/expect', input=script, raise_on_error=False)
         return result.rc
 
 
@@ -327,7 +327,7 @@ class HostGetent(MultihostUtility):
         return self.__exec(GroupEntry, 'group', name)
 
     def __exec(self, cls, cmd: str, name: str | int) -> any:
-        command = self.host.exec(['getent', cmd, name], raise_on_error=False)
+        command = self.host.ssh.exec(['getent', cmd, name], raise_on_error=False)
         if command.rc != 0:
             return None
 

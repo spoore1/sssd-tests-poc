@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import textwrap
 
+from ..ssh import SSHLog
+
 from ..host import BaseHost
 from .base import MultihostUtility
 
@@ -30,7 +32,7 @@ class HostFileSystem(MultihostUtility):
         """
         cmd = '\n'.join(reversed(self.__rollback))
         if cmd:
-            self.host.exec(cmd)
+            self.host.ssh.run(cmd)
 
         super().teardown()
 
@@ -55,7 +57,7 @@ class HostFileSystem(MultihostUtility):
         {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
         '''
 
-        result = self.host.exec(cmd, raise_on_error=False)
+        result = self.host.ssh.run(cmd, raise_on_error=False)
         if result.rc != 0:
             raise OSError(result.stderr)
 
@@ -82,7 +84,7 @@ class HostFileSystem(MultihostUtility):
         {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
         '''
 
-        result = self.host.exec(cmd, raise_on_error=False)
+        result = self.host.ssh.run(cmd, raise_on_error=False)
         if result.rc != 0:
             raise OSError(result.stderr)
 
@@ -111,7 +113,7 @@ class HostFileSystem(MultihostUtility):
         echo $tmp
         '''
 
-        result = self.host.exec(cmd, raise_on_error=False)
+        result = self.host.ssh.run(cmd, raise_on_error=False)
         if result.rc != 0:
             raise OSError(result.stderr)
 
@@ -120,7 +122,7 @@ class HostFileSystem(MultihostUtility):
             raise OSError("Temporary file was not created")
 
         self.__rollback.append(f"rm -fr '{tmpfile}'")
-        result = self.host.exec(self.__gen_chattrs(tmpfile, mode=mode, user=user, group=group), raise_on_error=False)
+        result = self.host.ssh.run(self.__gen_chattrs(tmpfile, mode=mode, user=user, group=group), raise_on_error=False)
 
         return tmpfile
 
@@ -134,7 +136,7 @@ class HostFileSystem(MultihostUtility):
         :return: File contents.
         :rtype: str
         """
-        result = self.host.exec(['cat', path], log_stdout=False, raise_on_error=False)
+        result = self.host.ssh.exec(['cat', path], log_level=SSHLog.Short, raise_on_error=False)
         if result.rc != 0:
             raise OSError(result.stderr)
 
@@ -183,7 +185,7 @@ class HostFileSystem(MultihostUtility):
         echo $tmp
         '''
 
-        result = self.host.exec(cmd, stdin=contents, log_stdout=False, raise_on_error=False)
+        result = self.host.ssh.run(cmd, input=contents, log_level=SSHLog.Short, raise_on_error=False)
         if result.rc != 0:
             raise OSError(result.stderr)
 
@@ -202,7 +204,7 @@ class HostFileSystem(MultihostUtility):
         :param local_path: Local path.
         :type local_path: str
         """
-        result = self.host.exec(['base64', remote_path], log_stdout=False)
+        result = self.host.ssh.exec(['base64', remote_path], log_level=SSHLog.Short)
         with open(local_path, 'wb') as f:
             f.write(base64.b64decode(result.stdout))
 
@@ -217,12 +219,12 @@ class HostFileSystem(MultihostUtility):
         :param local_path: Path to the gzipped tarball destination file on local machine.
         :type local_path: str
         """
-        result = self.host.exec(f'''
+        result = self.host.ssh.run(f'''
             tmp=`mktemp /tmp/mh.fs.download_files.XXXXXXXXX`
             tar -czvf "$tmp" {' '.join([f'$(compgen -G "{path}")' for path in paths])} &> /dev/null
             base64 "$tmp"
             rm -f "$tmp" &> /dev/null
-        ''', log_stdout=False)
+        ''', log_level=SSHLog.Short)
 
         with open(local_path, 'wb') as f:
             f.write(base64.b64decode(result.stdout))

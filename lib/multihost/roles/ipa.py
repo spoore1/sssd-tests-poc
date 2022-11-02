@@ -97,13 +97,13 @@ class IPAObject(BaseObject):
         self.name = name
 
     def _exec(self, op: str, args: list[str] = list(), **kwargs) -> None:
-        return self.role.host.exec(['ipa', f'{self.command}-{op}', self.name, *args], **kwargs)
+        return self.role.host.ssh.exec(['ipa', f'{self.command}-{op}', self.name, *args], **kwargs)
 
-    def _add(self, attrs: dict[str, tuple[BaseObject.cli, any]] = dict(), stdin: str | None = None):
-        self._exec('add', self._build_args(attrs), stdin=stdin)
+    def _add(self, attrs: dict[str, tuple[BaseObject.cli, any]] = dict(), input: str | None = None):
+        self._exec('add', self._build_args(attrs), input=input)
 
-    def _modify(self, attrs: dict[str, tuple[BaseObject.cli, any]], stdin: str | None = None):
-        self._exec('mod', self._build_args(attrs), stdin=stdin)
+    def _modify(self, attrs: dict[str, tuple[BaseObject.cli, any]], input: str | None = None):
+        self._exec('mod', self._build_args(attrs), input=input)
 
     def delete(self) -> None:
         """
@@ -187,7 +187,7 @@ class IPAUser(IPAObject):
         if not require_password_reset:
             attrs['password-expiration'] = (self.cli.VALUE, '20380805120000Z')
 
-        self._add(attrs, stdin=password)
+        self._add(attrs, input=password)
         return self
 
     def modify(
@@ -229,7 +229,7 @@ class IPAUser(IPAObject):
             'password': (self.cli.SWITCH, True) if password is not None else None,
         }
 
-        self._modify(attrs, stdin=password)
+        self._modify(attrs, input=password)
         return self
 
 
@@ -422,27 +422,27 @@ class IPASudoRule(IPAObject):
 
         # Add commands
         for cmd in allow_commands + deny_commands:
-            self.role.host.exec(f'ipa sudocmd-find "{cmd}" || ipa sudocmd-add "{cmd}"')
+            self.role.host.ssh.run(f'ipa sudocmd-find "{cmd}" || ipa sudocmd-add "{cmd}"')
 
         # Add command group for commands allowed by this rule
-        self.role.host.exec(f'ipa sudocmdgroup-add "{self.name}_allow"')
+        self.role.host.ssh.run(f'ipa sudocmdgroup-add "{self.name}_allow"')
         args = self.__args_from_list('sudocmds', allow_commands)
         self.__exec_with_args('sudocmdgroup-add-member', f'{self.name}_allow', args)
 
         # Add command groups for commands denied by this rule
-        self.role.host.exec(f'ipa sudocmdgroup-add "{self.name}_deny"')
+        self.role.host.ssh.run(f'ipa sudocmdgroup-add "{self.name}_deny"')
         args = self.__args_from_list('sudocmds', deny_commands)
         self.__exec_with_args('sudocmdgroup-add-member', f'{self.name}_deny', args)
 
         # Add sudo rule
         args = '' if order is None else f'"{order}"'
         args += f' {cmdcat} {usercat} {hostcat} {runasusercat} {runasgroupcat}'
-        self.role.host.exec(f'ipa sudorule-add "{self.name}" {args}')
+        self.role.host.ssh.run(f'ipa sudorule-add "{self.name}" {args}')
 
         # Allow and deny commands through command groups
         if not cmdcat:
-            self.role.host.exec(f'ipa sudorule-add-allow-command "{self.name}" "--sudocmdgroups={self.name}_allow"')
-            self.role.host.exec(f'ipa sudorule-add-deny-command "{self.name}" "--sudocmdgroups={self.name}_deny"')
+            self.role.host.ssh.run(f'ipa sudorule-add-allow-command "{self.name}" "--sudocmdgroups={self.name}_allow"')
+            self.role.host.ssh.run(f'ipa sudorule-add-deny-command "{self.name}" "--sudocmdgroups={self.name}_deny"')
 
         # Add hosts
         args = self.__args_from_list('hosts', hosts)
@@ -450,7 +450,7 @@ class IPASudoRule(IPAObject):
 
         # Add options
         for opt in options:
-            self.role.host.exec(f'ipa sudorule-add-option "{self.name}" "--sudooption={opt}"')
+            self.role.host.ssh.run(f'ipa sudorule-add-option "{self.name}" "--sudooption={opt}"')
 
         # Add run as user
         args_users = self.__args_from_list('users', runasuser_users)
@@ -513,9 +513,9 @@ class IPASudoRule(IPAObject):
         """
         Delete sudo rule from IPA.
         """
-        self.role.host.exec(f'ipa sudorule-del "{self.name}"')
-        self.role.host.exec(f'ipa sudocmdgroup-del "{self.name}_allow"')
-        self.role.host.exec(f'ipa sudocmdgroup-del "{self.name}_deny"')
+        self.role.host.ssh.run(f'ipa sudorule-del "{self.name}"')
+        self.role.host.ssh.run(f'ipa sudocmdgroup-del "{self.name}_allow"')
+        self.role.host.ssh.run(f'ipa sudocmdgroup-del "{self.name}_deny"')
 
     def __get_commands(self, value: str | list[str]) -> tuple[list[str], list[str], str]:
         allow_commands = []
@@ -623,7 +623,7 @@ class IPASudoRule(IPAObject):
 
     def __exec_with_args(self, cmd: str, name: str, args: str) -> None:
         if args:
-            self.role.host.exec(f'ipa {cmd} "{name}" {args}')
+            self.role.host.ssh.run(f'ipa {cmd} "{name}" {args}')
 
 
 class IPAAutomount(object):
@@ -760,7 +760,7 @@ class IPAAutomountMap(IPAObject):
             'location': (self.cli.POSITIONAL, self.location.name),
             'mapname': (self.cli.POSITIONAL, self.name),
         })
-        return self.role.host.exec(['ipa', f'{self.command}-{op}', *defargs, *args], **kwargs)
+        return self.role.host.ssh.exec(['ipa', f'{self.command}-{op}', *defargs, *args], **kwargs)
 
     def add(
         self,
@@ -815,7 +815,7 @@ class IPAAutomountKey(IPAObject):
             'mapname': (self.cli.POSITIONAL, self.map.name),
             'key': (self.cli.VALUE, self.name),
         })
-        return self.role.host.exec(['ipa', f'{self.command}-{op}', *defargs, *args], **kwargs)
+        return self.role.host.ssh.exec(['ipa', f'{self.command}-{op}', *defargs, *args], **kwargs)
 
     def add(
         self,

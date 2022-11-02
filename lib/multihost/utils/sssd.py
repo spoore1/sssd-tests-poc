@@ -5,11 +5,12 @@ from functools import partial
 from io import StringIO
 from typing import TYPE_CHECKING
 
+from ..ssh import SSHLog, SSHProcess, SSHProcessResult
+
 from ..host import BaseHost, ProviderHost
 from .base import MultihostUtility
 
 if TYPE_CHECKING:
-    from ..command import RemoteCommandResult
     from ..roles import BaseRole
     from .fs import HostFileSystem
     from .service import HostService
@@ -62,86 +63,143 @@ class HostSSSD(MultihostUtility):
             services = nss, pam
         ''')
 
-    def start(
+    def async_start(
         self,
         service='sssd',
         *,
-        raise_on_error: bool = True,
-        wait: bool = True,
         apply_config: bool = True,
         check_config: bool = True,
         debug_level: str | None = '0xfff0'
-    ) -> RemoteCommandResult:
+    ) -> SSHProcess:
         """
-        Start SSSD service.
+        Start SSSD service. Non-blocking call.
 
         :param service: Service to start, defaults to 'sssd'
         :type service: str, optional
-        :param raise_on_error: Raise exception on error, defaults to True
-        :type raise_on_error: bool, optional
-        :param wait: Wait for the command to finish, defaults to True
-        :type wait: bool, optional
         :param apply_config: Apply current configuration, defaults to True
         :type apply_config: bool, optional
         :param check_config: Check configuration for typos, defaults to True
         :type check_config: bool, optional
         :param debug_level: Automatically set debug level to the given value, defaults to 0xfff0
         :type debug_level:  str | None, optional
-        :return: Remote command result.
-        :rtype: RemoteCommandResult
+        :return: Running SSH process.
+        :rtype: SSHProcess
         """
         if apply_config:
             self.config_apply(check_config=check_config, debug_level=debug_level)
 
-        return self.svc.start(service, raise_on_error=raise_on_error, wait=wait)
+        return self.svc.async_start(service)
 
-    def stop(self, service='sssd', *, raise_on_error: bool = True, wait: bool = True) -> RemoteCommandResult:
+    def start(
+        self,
+        service='sssd',
+        *,
+        raise_on_error: bool = True,
+        apply_config: bool = True,
+        check_config: bool = True,
+        debug_level: str | None = '0xfff0'
+    ) -> SSHProcessResult:
         """
-        Stop SSSD service.
+        Start SSSD service. The call will wait until the operation is finished.
 
         :param service: Service to start, defaults to 'sssd'
         :type service: str, optional
         :param raise_on_error: Raise exception on error, defaults to True
         :type raise_on_error: bool, optional
-        :param wait: Wait for the command to finish, defaults to True
-        :type wait: bool, optional
-        :return: Remote command result.
-        :rtype: RemoteCommandResult
+        :param apply_config: Apply current configuration, defaults to True
+        :type apply_config: bool, optional
+        :param check_config: Check configuration for typos, defaults to True
+        :type check_config: bool, optional
+        :param debug_level: Automatically set debug level to the given value, defaults to 0xfff0
+        :type debug_level:  str | None, optional
+        :return: SSH process result.
+        :rtype: SSHProcessResult
         """
-        return self.svc.stop(service, raise_on_error=raise_on_error, wait=wait)
+        if apply_config:
+            self.config_apply(check_config=check_config, debug_level=debug_level)
+
+        return self.svc.start(service, raise_on_error=raise_on_error)
+
+    def async_stop(self, service='sssd') -> SSHProcess:
+        """
+        Stop SSSD service. Non-blocking call.
+
+        :param service: Service to start, defaults to 'sssd'
+        :type service: str, optional
+        :return: Running SSH process.
+        :rtype: SSHProcess
+        """
+        return self.svc.async_stop(service)
+
+    def stop(self, service='sssd', *, raise_on_error: bool = True) -> SSHProcessResult:
+        """
+        Stop SSSD service. The call will wait until the operation is finished.
+
+        :param service: Service to start, defaults to 'sssd'
+        :type service: str, optional
+        :param raise_on_error: Raise exception on error, defaults to True
+        :type raise_on_error: bool, optional
+        :return: SSH process result.
+        :rtype: SSHProcess
+        """
+        return self.svc.stop(service, raise_on_error=raise_on_error)
+
+    def async_restart(
+        self,
+        service='sssd',
+        *,
+        apply_config: bool = True,
+        check_config: bool = True,
+        debug_level: str | None = '0xfff0'
+    ) -> SSHProcess:
+        """
+        Restart SSSD service. Non-blocking call.
+
+        :param service: Service to start, defaults to 'sssd'
+        :type service: str, optional
+        :param apply_config: Apply current configuration, defaults to True
+        :type apply_config: bool, optional
+        :param check_config: Check configuration for typos, defaults to True
+        :type check_config: bool, optional
+        :param debug_level: Automatically set debug level to the given value, defaults to 0xfff0
+        :type debug_level:  str | None, optional
+        :return: Running SSH process.
+        :rtype: SSHProcess
+        """
+        if apply_config:
+            self.config_apply(check_config=check_config, debug_level=debug_level)
+
+        return self.svc.async_restart(service)
 
     def restart(
         self,
         service='sssd',
         *,
         raise_on_error: bool = True,
-        wait: bool = True,
         apply_config: bool = True,
         check_config: bool = True,
         debug_level: str | None = '0xfff0'
-    ) -> RemoteCommandResult:
+    ) -> SSHProcessResult:
         """
-        Restart SSSD service.
+        Restart SSSD service. The call will wait until the operation is finished.
 
         :param service: Service to start, defaults to 'sssd'
         :type service: str, optional
         :param raise_on_error: Raise exception on error, defaults to True
         :type raise_on_error: bool, optional
-        :param wait: Wait for the command to finish, defaults to True
-        :type wait: bool, optional
         :param apply_config: Apply current configuration, defaults to True
         :type apply_config: bool, optional
         :param check_config: Check configuration for typos, defaults to True
         :type check_config: bool, optional
         :param debug_level: Automatically set debug level to the given value, defaults to 0xfff0
         :type debug_level:  str | None, optional
-        :return: Remote command result.
-        :rtype: RemoteCommandResult
+        :return: SSH process result.
+        :rtype: SSHProcessResult
         """
         if apply_config:
             self.config_apply(check_config=check_config, debug_level=debug_level)
 
-        return self.svc.restart(service, raise_on_error=raise_on_error, wait=wait)
+        return self.svc.restart(service, raise_on_error=raise_on_error)
 
     def clear(self, *, db: bool = True, config: bool = False, logs: bool = False):
         """
@@ -165,7 +223,7 @@ class HostSSSD(MultihostUtility):
         if logs:
             cmd += ' /var/log/sssd/*'
 
-        self.host.exec('rm -fr /var/lib/sss/db/* /var/log/sssd/*')
+        self.host.ssh.run('rm -fr /var/lib/sss/db/* /var/log/sssd/*')
 
     def enable_responder(self, responder: str) -> None:
         """
@@ -219,7 +277,7 @@ class HostSSSD(MultihostUtility):
         """
         Load remote SSSD configuration.
         """
-        result = self.host.exec(['cat', '/etc/sssd/sssd.conf'], log_stdout=False)
+        result = self.host.ssh.exec(['cat', '/etc/sssd/sssd.conf'], log_level=SSHLog.Short)
         self.config.clear()
         self.config.read_string(result.stdout)
 
@@ -237,7 +295,7 @@ class HostSSSD(MultihostUtility):
         self.fs.write('/etc/sssd/sssd.conf', contents, mode='0600')
 
         if check_config:
-            self.host.exec('sssctl config-check')
+            self.host.ssh.run('sssctl config-check')
 
     def section(self, name: str) -> dict[str, str]:
         """

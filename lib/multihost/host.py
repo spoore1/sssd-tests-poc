@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Type
 
 import ldap
 import ldap.ldapobject
@@ -10,6 +10,8 @@ from pytest_multihost.transport import OpenSSHTransport
 from pytest_multihost.transport import SSHCommand as pytest_SSHCommand
 
 from .command import RemoteCommandResult
+from .ssh import SSHClient, SSHProcess, SSHBashProcess, SSHPowerShellProcess
+from .logging import MultihostLogger
 
 if TYPE_CHECKING:
     from .config import MultihostDomain
@@ -23,22 +25,35 @@ class BaseHost(object):
     Base host class that provides access to the remote host.
     """
 
-    def __init__(self, host: pytest_multihost_Host, config: dict[str, any]):
+    def __init__(self, host: pytest_multihost_Host, config: dict[str, any], shell: Type[SSHProcess] = SSHBashProcess):
         """
         :param host: Low level pytest_multihost host instance.
         :type host: pytest_multihost.Host
         :param config: Additional configuration.
         :type config: dict[str, any]
+        :param shell: Shell used in SSH connection, defaults to '/usr/bin/bash -c'.
+        :type shell: str
         """
         self.host: pytest_multihost_Host = host
         self.role: str = self.host.role
         self.hostname: str = self.host.external_hostname
         self.config: dict[str, any] = config
         self.test_dir = self.host.test_dir
+        self.logger: MultihostLogger = host.config.logger
 
         # SSH configuration
         self.ssh_username: str = self.host.ssh_username
         self.ssh_password: str = self.host.ssh_password
+        self.ssh: SSHClient = SSHClient(
+            self.hostname,
+            user=self.ssh_username,
+            password=self.ssh_password,
+            shell=shell,
+            logger=host.config.logger,
+        )
+
+        self.ssh.connect()
+
 
     @classmethod
     def from_dict(cls, dct: dict[str, any], domain: MultihostDomain) -> BaseHost:
@@ -132,98 +147,10 @@ class BaseHost(object):
         """
         pass
 
-    def exec(
-        self,
-        argv: str | list[any] | tuple[any],
-        *,
-        cwd: str = None,
-        stdin: str | bytes = None,
-        env: dict[str, any] = dict(),
-        log_stdout: bool = True,
-        raise_on_error: bool = True,
-        wait: bool = True
-    ) -> RemoteCommandResult:
-        """
-        Execute command on remote host inside a bash shell.
-
-        :param argv: Command or script to execute as string or argv list.
-        :type argv: str | list[any] | tuple[any]
-        :param cwd: Working directory where the command should be executed, defaults to None
-        :type cwd: str, optional
-        :param stdin: Standard input, defaults to None
-        :type stdin: str | bytes, optional
-        :param env: Environment variables, defaults to dict()
-        :type env: dict[str, any], optional
-        :param log_stdout: If True, command output is printed to the logger, defaults to True
-        :type log_stdout: bool, optional
-        :param raise_on_error: Raise ``subprocess.CalledProcessError`` on non-zero return code, defaults to True
-        :type raise_on_error: bool, optional
-        :param wait: Wait for the command to finish, defaults to True
-        :type wait: bool, optional
-        :raises ValueError: If argv or cwd is empty.
-        :raises TypeError: If argv is instance of unsupported type.
-        :return: Command result, if ``wait`` is set to False, you need to call ``res.wait()``.
-        :rtype: RemoteCommandResult
-        """
-        if not argv:
-            raise ValueError('Parameter "argv" can not be empty.')
-
-        if not isinstance(argv, (str, list, tuple)):
-            raise TypeError('Parameter "argv" can be: str, list[any], tuple[any]')
-
-        if cwd is not None and not cwd:
-            raise ValueError('Parameter "cwd" can not be empty.')
-
-        command = self._open_shell('bash', argv, log_stdout=log_stdout, encoding='utf-8')
-
-        def write(str: str) -> None:
-            command.stdin.write(str.encode('utf-8'))
-
-        # Set environment
-        for key, value in env.items():
-            value = self.__escape_argv(value)
-            write(f'export {key}={value}\n')
-
-        # Set working directory
-        if cwd is not None:
-            arg = self.__escape_argv(cwd)
-            write(f"cd '{arg}'\n")
-
-        # Write input data
-        arg = self.__escape_echo(stdin)
-        write(f"echo -en '{arg}' | ")
-
-        argv = [argv] if isinstance(argv, (str, bytes)) else [f"'{self.__escape_argv(x)}'" for x in argv]
-        write(f"( {' '.join(argv)} )\n")
-        write('exit\n')
-        command.stdin.flush()
-        command.raiseonerr = raise_on_error
-
-        if wait:
-            command.wait()
-
-        return RemoteCommandResult(command)
-
     def _open_shell(self, sh: str, argv, log_stdout=True, encoding='utf-8') -> pytest_SSHCommand:
         transport = self.host.transport
         transport.log.info('RUN %s', argv)
         return transport._run(['-o', 'LogLevel=ERROR', sh], argv=argv, log_stdout=log_stdout, encoding=encoding)
-
-    def __decode(self, value: any) -> str:
-        if isinstance(value, bytes):
-            return value.decode('utf-8')
-
-        return str(value)
-
-    def __escape_echo(self, value: any) -> str:
-        value = self.__decode(value)
-        value = value.replace("\\", r"\\")
-        value = value.replace("\0", r"\x00")
-        value = value.replace("'", r"\'")
-        return value
-
-    def __escape_argv(self, value: any) -> str:
-        return self.__decode(value).replace("'", r"\'")
 
 
 class ProviderHost(BaseHost):
@@ -234,7 +161,7 @@ class ProviderHost(BaseHost):
     directory server.
     """
 
-    def __init__(self, host: pytest_multihost_Host, config: dict[str, any], tls: bool = True):
+    def __init__(self, host: pytest_multihost_Host, config: dict[str, any], tls: bool = True, **kwargs):
         """
         :param host: Low level pytest_multihost host instance.
         :type host: pytest_multihost.Host
@@ -243,7 +170,7 @@ class ProviderHost(BaseHost):
         :param tls: Require TLS connection, defaults to True
         :type tls: bool, optional
         """
-        super().__init__(host, config)
+        super().__init__(host, config, **kwargs)
         self.client: dict[str, any] = config.get('client', {})
 
         self.tls = tls
@@ -431,7 +358,7 @@ class IPAHost(ProviderHost):
         """
         Obtain ``admin`` user Kerberos TGT.
         """
-        self.exec(['kinit', 'admin'], stdin=self.adminpw)
+        self.ssh.exec(['kinit', 'admin'], input=self.adminpw)
 
     def backup(self) -> None:
         """
@@ -443,8 +370,8 @@ class IPAHost(ProviderHost):
         if self.__backup is not None:
             return
 
-        self.exec('ipa-backup --data --online')
-        cmd = self.exec('ls /var/lib/ipa/backup | tail -n 1')
+        self.ssh.run('ipa-backup --data --online')
+        cmd = self.ssh.run('ls /var/lib/ipa/backup | tail -n 1')
         self.__backup = cmd.stdout.strip()
 
     def restore(self) -> None:
@@ -457,7 +384,7 @@ class IPAHost(ProviderHost):
         if self.__backup is None:
             return
 
-        self.exec(['ipa-restore', '--unattended', '--password', self.bindpw, '--data', '--online', self.__backup])
+        self.ssh.exec(['ipa-restore', '--unattended', '--password', self.bindpw, '--data', '--online', self.__backup])
 
 
 class SambaHost(ProviderHost):
@@ -489,7 +416,7 @@ class SambaHost(ProviderHost):
         if self.__backup is not None:
             return
 
-        self.exec('''
+        self.ssh.run('''
             set -e
             systemctl stop samba
             rm -fr /var/lib/samba.bak
@@ -497,7 +424,7 @@ class SambaHost(ProviderHost):
             systemctl start samba
 
             # systemctl finishes before samba is fully started, wait for it to start listening on ldap port
-            timeout 5s bash -c 'until netstat -ltp | grep :ldap &> /dev/null; do :; done'
+            timeout 5s bash -c 'until netstat -ltp 2> /dev/null | grep :ldap &> /dev/null; do :; done'
         ''')
         self.__backup = True
 
@@ -513,7 +440,7 @@ class SambaHost(ProviderHost):
 
         self.disconnect()
 
-        self.exec('''
+        self.ssh.run('''
             set -e
             systemctl stop samba
             rm -fr /var/lib/samba
@@ -522,7 +449,7 @@ class SambaHost(ProviderHost):
             samba-tool ntacl sysvolreset
 
             # systemctl finishes before samba is fully started, wait for it to start listening on ldap port
-            timeout 5s bash -c 'until netstat -ltp | grep :ldap &> /dev/null; do :; done'
+            timeout 5s bash -c 'until netstat -ltp 2> /dev/null | grep :ldap &> /dev/null; do :; done'
         ''')
 
         self.disconnect()
@@ -547,7 +474,7 @@ class ADHost(ProviderHost):
     """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, shell=SSHPowerShellProcess)
 
         # Additional client configuration
         self.client.setdefault('id_provider', 'ad')
@@ -652,7 +579,7 @@ class ADHost(ProviderHost):
         :rtype: str
         """
         if not self.__naming_context:
-            result = self.exec('Write-Host (Get-ADRootDSE).rootDomainNamingContext')
+            result = self.ssh.run('Write-Host (Get-ADRootDSE).rootDomainNamingContext')
             nc = result.stdout.strip()
             if not nc:
                 raise ValueError('Unable to find default naming context')
@@ -675,7 +602,7 @@ class ADHost(ProviderHost):
         if self.__backup:
             return
 
-        self.exec(fr'''
+        self.ssh.run(fr'''
         Remove-Item C:\multihost_backup.txt
         $result = Get-ADObject -SearchBase '{self.naming_context}' -Filter "*"
         foreach ($r in $result) {{
@@ -693,7 +620,7 @@ class ADHost(ProviderHost):
         that are not present in the original state.
         """
 
-        self.exec(fr'''
+        self.ssh.run(fr'''
         $backup = Get-Content C:\multihost_backup.txt
         $result = Get-ADObject -SearchBase '{self.naming_context}' -Filter "*"
         foreach ($r in $result) {{
@@ -706,6 +633,9 @@ class ADHost(ProviderHost):
                 }}
             }}
         }}
+
+        # If we got here, make sure we exit with 0
+        Exit 0
         ''')
 
 
@@ -730,7 +660,7 @@ class NFSHost(BaseHost):
         if self.__backup:
             return
 
-        self.exec(fr'''
+        self.ssh.run(fr'''
         tar --ignore-failed-read -czvf /tmp/mh.nfs.backup.tgz "{self.exports_dir}" /etc/exports /etc/exports.d
         ''')
 
@@ -741,7 +671,7 @@ class NFSHost(BaseHost):
         Restore NFS server to its initial contents.
         """
 
-        self.exec(fr'''
+        self.ssh.run(fr'''
         rm -fr "{self.exports_dir}/*"
         rm -fr /etc/exports.d/*
         tar -xf /tmp/mh.nfs.backup.tgz -C /
