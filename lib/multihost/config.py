@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from .host import MultihostHost, ADHost, IPAHost, LDAPHost, NFSHost, SambaHost
+from typing import Any, Type
+
+from .host import ADHost, IPAHost, LDAPHost, MultihostHost, NFSHost, SambaHost
 from .logging import MultihostLogger
-from typing import Type, Any
 
 
 class MultihostDomain(object):

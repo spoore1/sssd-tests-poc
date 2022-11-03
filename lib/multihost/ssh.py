@@ -1,5 +1,4 @@
 from __future__ import annotations
-from cmath import log
 
 import itertools
 import shlex
@@ -8,7 +7,6 @@ from enum import Enum, auto
 from typing import Any, Generator, Type
 
 import colorama as c
-import pssh.clients
 import pssh.clients.base.single
 import pssh.clients.ssh
 import pssh.output

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Type
+
 import ldap
 import ldap.ldapobject
 import ldap.modlist
 
-from .ssh import SSHPowerShellProcess
-from .ssh import SSHProcess, SSHBashProcess, SSHClient
-from typing import Type, Any,TYPE_CHECKING
 from .logging import MultihostLogger
+from .ssh import SSHBashProcess, SSHClient, SSHPowerShellProcess, SSHProcess
 
 if TYPE_CHECKING:
     from .config import MultihostDomain

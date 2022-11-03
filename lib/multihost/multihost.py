@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from .config import MultihostConfig
+from .config import MultihostConfig, MultihostDomain
 from .host import MultihostHost
 from .logging import MultihostLogger
 from .roles import BaseRole, get_role_class
@@ -85,7 +85,7 @@ class Multihost(object):
             if domain.type in topology:
                 setattr(self, domain.type, self._domain_to_namespace(domain, topology.get(domain.type)))
 
-    def _domain_to_namespace(self, domain: Domain, topology_domain: TopologyDomain) -> SimpleNamespace:
+    def _domain_to_namespace(self, domain: MultihostDomain, topology_domain: TopologyDomain) -> SimpleNamespace:
         ns = SimpleNamespace()
         for role in domain.roles:
             if role not in topology_domain:

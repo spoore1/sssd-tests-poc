@@ -33,7 +33,14 @@ class BaseRole(object):
         Delete attribute when modifying object.
         """
 
-    def __init__(self, mh: Multihost, role: str, host: MultihostHost, user_cls: type = None, group_cls: type = None) -> None:
+    def __init__(
+        self,
+        mh: Multihost,
+        role: str,
+        host: MultihostHost,
+        user_cls: type = None,
+        group_cls: type = None
+    ) -> None:
         self.mh = mh
         self.role = role
         self.host = host
@@ -269,7 +276,14 @@ class LinuxRole(BaseRole):
     Base linux role.
     """
 
-    def __init__(self, mh: Multihost, role: str, host: MultihostHost, user_cls: type = None, group_cls: type = None) -> None:
+    def __init__(
+        self,
+        mh: Multihost,
+        role: str,
+        host: MultihostHost,
+        user_cls: type = None,
+        group_cls: type = None
+    ) -> None:
         super().__init__(mh, role, host, user_cls=user_cls, group_cls=group_cls)
 
         self.authselect: HostAuthselect = HostAuthselect(host)

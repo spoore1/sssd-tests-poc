@@ -5,9 +5,8 @@ from functools import partial
 from io import StringIO
 from typing import TYPE_CHECKING
 
-from ..ssh import SSHLog, SSHProcess, SSHProcessResult
-
 from ..host import MultihostHost, ProviderHost
+from ..ssh import SSHLog, SSHProcess, SSHProcessResult
 from .base import MultihostUtility
 
 if TYPE_CHECKING:

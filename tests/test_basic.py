@@ -274,4 +274,4 @@ def test_ad_ou(client: Client, ad: AD):
 
 @pytest.mark.topology(KnownTopology.Client)
 def test_ssh_client(client: Client):
-    client.host.ssh.run(f'rm -fr /var/lib/sss/db/*')
+    client.host.ssh.run('rm -fr /var/lib/sss/db/*')

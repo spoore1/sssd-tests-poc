@@ -184,7 +184,9 @@ class HostSudo(AuthBase):
         :return: True if the command was successful, False if the command failed or the user can not run sudo.
         :rtype: bool
         """
-        result = self.host.ssh.run(f'su - "{username}" -c "sudo --stdin {command}"', input=password, raise_on_error=False)
+        result = self.host.ssh.run(
+            f'su - "{username}" -c "sudo --stdin {command}"', input=password, raise_on_error=False
+        )
 
         return result.rc == 0
 

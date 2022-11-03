@@ -3,9 +3,8 @@ from __future__ import annotations
 import base64
 import textwrap
 
-from ..ssh import SSHLog
-
 from ..host import MultihostHost
+from ..ssh import SSHLog
 from .base import MultihostUtility
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from ..ssh import SSHLog, SSHProcessResult, SSHProcess
 from ..host import MultihostHost
+from ..ssh import SSHLog, SSHProcess, SSHProcessResult
 from .base import MultihostUtility
 
 
@@ -194,7 +194,7 @@ class HostService(MultihostUtility):
         :return: Running SSH process.
         :rtype: SSHProcess
         """
-        return self.host.ssh.async_run(f'systemctl daemon-reload')
+        return self.host.ssh.async_run('systemctl daemon-reload')
 
     def reload_daemon(self, raise_on_error: bool = True) -> SSHProcessResult:
         """
@@ -206,7 +206,7 @@ class HostService(MultihostUtility):
         :rtype: SSHProcessResult
         """
         return self.host.ssh.run(
-            f'systemctl daemon-reload',
+            'systemctl daemon-reload',
             raise_on_error=raise_on_error
         )
 
