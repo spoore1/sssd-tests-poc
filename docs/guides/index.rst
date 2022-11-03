@@ -7,3 +7,4 @@ How to guides
    testing-identity
    testing-authentication
    testing-autofs
+   ssh-client
