@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..host import BaseHost
+from ..host import MultihostHost
 from ..utils.automount import HostAutomount
 from ..utils.sssd import HostSSSD
 from .base import LinuxRole
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 class Client(LinuxRole):
-    def __init__(self, mh: Multihost, role: str, host: BaseHost) -> None:
+    def __init__(self, mh: Multihost, role: str, host: MultihostHost) -> None:
         super().__init__(mh, role, host)
         self.sssd: HostSSSD = HostSSSD(host, self.fs, self.svc, load_config=False)
         """

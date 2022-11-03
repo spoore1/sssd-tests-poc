@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..host import BaseHost
+from ..host import MultihostHost
 from ..roles.nfs import NFSExport
 from .base import MultihostUtility
 from .service import HostService
@@ -13,10 +13,10 @@ class HostAutomount(MultihostUtility):
     All changes are automatically reverted when a test is finished.
     """
 
-    def __init__(self, host: BaseHost, svc: HostService) -> None:
+    def __init__(self, host: MultihostHost, svc: HostService) -> None:
         """
         :param host: Remote host instance.
-        :type host: BaseHost
+        :type host: MultihostHost
         """
         super().__init__(host)
         self.svc = svc

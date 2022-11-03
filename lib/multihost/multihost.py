@@ -4,10 +4,9 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
-from pytest_multihost.config import Domain
 
 from .config import MultihostConfig
-from .host import BaseHost
+from .host import MultihostHost
 from .logging import MultihostLogger
 from .roles import BaseRole, get_role_class
 from .topology import Topology, TopologyDomain
@@ -103,7 +102,7 @@ class Multihost(object):
 
         return ns
 
-    def _host_to_role(self, host: BaseHost):
+    def _host_to_role(self, host: MultihostHost):
         cls = get_role_class(host.role)
         return cls(self, host.role, host)
 

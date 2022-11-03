@@ -1,36 +1,66 @@
 from __future__ import annotations
-from ast import Mult
 
-import logging
-
-import pytest_multihost
-
-from .host import ADHost, BaseHost, IPAHost, LDAPHost, NFSHost, SambaHost
+from .host import MultihostHost, ADHost, IPAHost, LDAPHost, NFSHost, SambaHost
 from .logging import MultihostLogger
+from typing import Type, Any
 
 
-class MultihostDomain(pytest_multihost.config.Domain):
+class MultihostDomain(object):
     """
     Multihost domain class.
     """
 
-    def get_host_class(self, host_dict: dict[str, any]):
+    def __init__(self, config: MultihostConfig, confdict: dict[str, Any]) -> None:
+        if 'type' not in confdict:
+            raise ValueError('"type" property is missing in domain configuration')
+
+        if 'hosts' not in confdict:
+            raise ValueError('"hosts" property is missing in domain configuration')
+
+        self.config: MultihostConfig = config
+        """Multihost configuration"""
+
+        self.logger: MultihostLogger = config.logger
+        """Multihost logger"""
+
+        self.type: str = confdict['type']
+        """Domain type"""
+
+        self.hosts: list[MultihostHost] = []
+        """Available hosts in this domain"""
+
+        for host in confdict['hosts']:
+            self.hosts.append(self._create_host(host))
+
+    @property
+    def roles(self) -> list[str]:
+        """
+        All roles available in this domain.
+
+        :return: Role names.
+        :rtype: list[str]
+        """
+        return sorted(set(x.role for x in self.hosts))
+
+    def _create_host(self, confdict: dict[str, Any]) -> MultihostHost:
         """
         Find desired host class by role.
 
-        :param host_dict: Host configuration as a dictionary.
-        :type host_dict: dict[str, any]
-        :return: Host class.
-        :rtype: class
+        :param confdict: Host configuration as a dictionary.
+        :type confdict: dict[str, any]
+        :return: Host instance.
+        :rtype: MultihostHost
         """
-        role = host_dict['role']
-        if role in self.host_classes:
-            return self.host_classes[role]
+        if not confdict.get('role', None):
+            raise ValueError('"role" property is missing in host configuration')
 
-        return BaseHost
+        role = confdict['role']
+        cls = self.host_classes[role] if role in self.host_classes else MultihostHost
+
+        return cls(self, confdict)
 
     @property
-    def host_classes(self):
+    def host_classes(self) -> Type[MultihostHost]:
         """
         Map role to host class.
 
@@ -45,40 +75,40 @@ class MultihostDomain(pytest_multihost.config.Domain):
             'nfs': NFSHost,
         }
 
+    def hosts_by_role(self, role: str) -> list[MultihostHost]:
+        """
+        Return all hosts of the given role.
 
-class MultihostConfig(pytest_multihost.config.Config):
+        :param role: Role name.
+        :type role: str
+        :return: List of hosts of given role.
+        :rtype: list[MultihostHost]
+        """
+        return [x for x in self.hosts if x.role == role]
+
+
+class MultihostConfig(object):
     """
-    Low-level multihost configuration object, tight to ``pytest_multihost``
-    plugin.
+    Multihost configuration.
     """
 
-    extra_init_args = {'log_path'}
+    def __init__(
+        self,
+        confdict: dict[str, Any],
+        *,
+        log_path: str | None = None,
+    ) -> None:
+        self.logger: MultihostLogger = MultihostLogger.Setup(log_path)
+        """Multihost logger"""
 
-    def __init__(self, log_path: str | None = None, **kwargs) -> None:
-        self.log_path: str | None = log_path
-        self.logger: MultihostLogger = MultihostLogger.Setup(self.log_path)
-        super().__init__(**kwargs)
+        self.domains: list[MultihostDomain] = []
+        """Available domains"""
 
-    def get_domain_class(self):
+        if 'domains' not in confdict:
+            raise ValueError('"domains" property is missing in multihost configuration')
+
+        for domain in confdict['domains']:
+            self.domains.append(MultihostDomain(self, domain))
+
+    def get_domain_class(self) -> Type[MultihostDomain]:
         return MultihostDomain
-
-    def get_logger(self, name: str) -> logging.Logger:
-        """
-        Get logger.
-        """
-
-        logger = logging.getLogger(name)
-        if logger.hasHandlers():
-            return logger
-
-        if self.log_path is None:
-            return logger
-
-        handler = logging.FileHandler(self.log_path)
-        handler.setLevel(logging.DEBUG)
-        handler.setFormatter(logging.Formatter('%(name)s - %(levelname)s - %(message)s'))
-
-        logger.addHandler(handler)
-        logger.setLevel(logging.DEBUG)
-
-        return logger

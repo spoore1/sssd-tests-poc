@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..host import BaseHost
+from ..host import MultihostHost
 from .base import MultihostUtility
 
 
@@ -11,10 +11,10 @@ class HostAuthselect(MultihostUtility):
     All changes are automatically reverted when a test is finished.
     """
 
-    def __init__(self, host: BaseHost) -> None:
+    def __init__(self, host: MultihostHost) -> None:
         """
         :param host: Remote host instance.
-        :type host: BaseHost
+        :type host: MultihostHost
         """
         super().__init__(host)
         self.__backup: str = None

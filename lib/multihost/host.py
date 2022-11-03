@@ -1,139 +1,89 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Type
-
 import ldap
 import ldap.ldapobject
 import ldap.modlist
-from pytest_multihost.host import Host as pytest_multihost_Host
-from pytest_multihost.transport import OpenSSHTransport
-from pytest_multihost.transport import SSHCommand as pytest_SSHCommand
 
-from .command import RemoteCommandResult
-from .ssh import SSHClient, SSHProcess, SSHBashProcess, SSHPowerShellProcess
+from .ssh import SSHPowerShellProcess
+from .ssh import SSHProcess, SSHBashProcess, SSHClient
+from typing import Type, Any,TYPE_CHECKING
 from .logging import MultihostLogger
 
 if TYPE_CHECKING:
     from .config import MultihostDomain
 
-# Always use OpenSSHTransport
-pytest_multihost_Host.transport_class = OpenSSHTransport
 
-
-class BaseHost(object):
+class MultihostHost(object):
     """
-    Base host class that provides access to the remote host.
+    Base multihost host class.
+
+    .. code-block:: yaml
+        :caption: Example configuration in YAML format
+
+        - hostname: dc.ad.test
+          role: ad
+          username: Administrator@ad.test
+          password: vagrant
+          config:
+            binddn: Administrator@ad.test
+            bindpw: vagrant
+            client:
+              ad_domain: ad.test
+              krb5_keytab: /enrollment/ad.keytab
+              ldap_krb5_keytab: /enrollment/ad.keytab
+
+    * Required fields: ``hostname``, ``role``, ``username``, ``password``
+    * Optional fields: ``config``
     """
 
-    def __init__(self, host: pytest_multihost_Host, config: dict[str, any], shell: Type[SSHProcess] = SSHBashProcess):
+    def __init__(self, domain: MultihostDomain, confdict: dict[str, Any], shell: Type[SSHProcess] = SSHBashProcess):
         """
-        :param host: Low level pytest_multihost host instance.
-        :type host: pytest_multihost.Host
-        :param config: Additional configuration.
-        :type config: dict[str, any]
+        :param domain: Multihost domain object.
+        :type domain: MultihostDomain
+        :param confdict: Host configuration as a dictionary.
+        :type confdict: dict[str, Any]
         :param shell: Shell used in SSH connection, defaults to '/usr/bin/bash -c'.
         :type shell: str
         """
-        self.host: pytest_multihost_Host = host
-        self.role: str = self.host.role
-        self.hostname: str = self.host.external_hostname
-        self.config: dict[str, any] = config
-        self.test_dir = self.host.test_dir
-        self.logger: MultihostLogger = host.config.logger
+        def is_present(property: str, confdict: dict[str, Any]) -> bool:
+            if '/' in property:
+                (key, subpath) = property.split('/', maxsplit=1)
+                if not confdict.get(key, None):
+                    return False
 
-        # SSH configuration
-        self.ssh_username: str = self.host.ssh_username
-        self.ssh_password: str = self.host.ssh_password
+                return is_present(subpath, confdict[key])
+
+            return property in confdict and confdict[property]
+
+        for required in self.required_fields:
+            if not is_present(required, confdict):
+                raise ValueError(f'"{required}" property is missing in host configuration')
+
+        # Required
+        self.domain: MultihostDomain = domain
+        self.logger: MultihostLogger = domain.logger
+        self.hostname: str = confdict['hostname']
+        self.role: str = confdict['role']
+        self.username: str = confdict['username']
+        self.password: str = confdict['password']
+
+        # Optional
+        self.config = confdict.get('config', {})
+
+        # SSH connection
         self.ssh: SSHClient = SSHClient(
-            self.hostname,
-            user=self.ssh_username,
-            password=self.ssh_password,
+            host=self.hostname,
+            user=self.username,
+            password=self.password,
+            logger=self.logger,
             shell=shell,
-            logger=host.config.logger,
         )
 
         self.ssh.connect()
 
-
-    @classmethod
-    def from_dict(cls, dct: dict[str, any], domain: MultihostDomain) -> BaseHost:
-        """
-        Create host instance from a configuration in dictionary.
-
-        This extends standard pytest_multihost configuration with additional
-        field ``config`` that contains additional host specific settings.
-
-        It also combines and renames pytest_multihost fields ``name`` and
-        ``external_hostname`` with ``hostname`` to allow shorter and more
-        clear definition.
-
-        .. code-block:: yaml
-            :caption: Example configuration in YAML format
-
-            - hostname: dc.ad.test
-              role: ad
-              username: Administrator@ad.test
-              password: vagrant
-              config:
-                binddn: Administrator@ad.test
-                bindpw: vagrant
-                client:
-                  ad_domain: ad.test
-                  krb5_keytab: /enrollment/ad.keytab
-                  ldap_krb5_keytab: /enrollment/ad.keytab
-
-        * Optional fields: ``ip``, ``username``, ``password``, ``config``
-        * Required fields: ``hostname``, ``role``
-
-        :param dct: Configuration as a dictionary.
-        :type dct: dict[str, any]
-        :param domain: Multihost domain.
-        :type domain: MultihostDomain
-        :raises KeyError: If required attribute is not set or if unknown attribute was provided.
-        :return: Host instance.
-        :rtype: BaseHost
-        """
-        optional = ['ip', 'username', 'password', 'config']
-        required = ['hostname', 'role']
-
-        for attr in required:
-            if attr not in dct:
-                raise KeyError(f'Attribute "{attr}" must be set')
-
-        for attr in dct.keys():
-            if attr not in optional + required:
-                raise KeyError(f'Attribute "{attr}" is not allowed')
-
-        # Legacy keys used by python_multihost, name is required.
-        # External hostname and role is required by us.
-        # Dot at the end on name prevents appending domain name to it.
-        legacy = {
-            'name': dct['hostname'] + '.',
-            'external_hostname': dct['hostname'],
-            'role': dct['role'],
-            'ip': dct.get('ip', None),
-            'username': dct.get('username', None),
-            'password': dct.get('password', None),
-        }
-
-        host = pytest_multihost_Host.from_dict(legacy, domain)
-        config = dct.get('config', {})
-
-        return cls(host=host, config=config)
-
-    def to_dict(self) -> dict[str, any]:
-        """
-        Convert this host configuration into dictionary.
-
-        :return: Host configuration.
-        :rtype: dict[str, any]
-        """
-        return {
-            'role': self.role,
-            'hostname': self.hostname,
-            'ip': self.host.ip,
-            'config': self.config,
-        }
+    @property
+    def required_fields(self) -> list[str]:
+        return ['hostname', 'role', 'username', 'password']
 
     def backup(self) -> None:
         """
@@ -147,13 +97,8 @@ class BaseHost(object):
         """
         pass
 
-    def _open_shell(self, sh: str, argv, log_stdout=True, encoding='utf-8') -> pytest_SSHCommand:
-        transport = self.host.transport
-        transport.log.info('RUN %s', argv)
-        return transport._run(['-o', 'LogLevel=ERROR', sh], argv=argv, log_stdout=log_stdout, encoding=encoding)
 
-
-class ProviderHost(BaseHost):
+class ProviderHost(MultihostHost):
     """
     Generic provider host.
 
@@ -161,17 +106,17 @@ class ProviderHost(BaseHost):
     directory server.
     """
 
-    def __init__(self, host: pytest_multihost_Host, config: dict[str, any], tls: bool = True, **kwargs):
+    def __init__(self, *args, tls: bool = True, **kwargs):
         """
-        :param host: Low level pytest_multihost host instance.
-        :type host: pytest_multihost.Host
-        :param config: Additional configuration.
-        :type config: dict[str, any]
+        :param \\*args: MultihostHost arguments.
+        :type \\*args: Any
+        :param \\*kwargs: MultihostHost keyword arguments.
+        :type \\*kwargs: Any
         :param tls: Require TLS connection, defaults to True
         :type tls: bool, optional
         """
-        super().__init__(host, config, **kwargs)
-        self.client: dict[str, any] = config.get('client', {})
+        super().__init__(*args, **kwargs)
+        self.client: dict[str, any] = self.config.get('client', {})
 
         self.tls = tls
         self.uri = f'ldap://{self.hostname}'
@@ -488,80 +433,6 @@ class ADHost(ProviderHost):
         # Lazy properties
         self.__naming_context = None
 
-    def exec(
-        self,
-        argv: str | list[any] | tuple[any],
-        *,
-        cwd: str = None,
-        stdin: str | bytes = None,
-        env: dict[str, any] = dict(),
-        log_stdout: bool = True,
-        raise_on_error: bool = True,
-        wait: bool = True
-    ) -> RemoteCommandResult:
-        """
-        Execute command on remote host inside a powershell.
-
-        :param argv: Command or script to execute as string or argv list.
-        :type argv: str | list[any] | tuple[any]
-        :param cwd: Working directory where the command should be executed, defaults to None
-        :type cwd: str, optional
-        :param stdin: Standard input, defaults to None
-        :type stdin: str | bytes, optional
-        :param env: Environment variables, defaults to dict()
-        :type env: dict[str, any], optional
-        :param log_stdout: If True, command output is printed to the logger, defaults to True
-        :type log_stdout: bool, optional
-        :param raise_on_error: Raise ``subprocess.CalledProcessError`` on non-zero return code, defaults to True
-        :type raise_on_error: bool, optional
-        :param wait: Wait for the command to finish, defaults to True
-        :type wait: bool, optional
-        :raises ValueError: If argv or cwd is empty.
-        :raises TypeError: If argv is instance of unsupported type.
-        :return: Command result, if ``wait`` is set to False, you need to call ``res.wait()``.
-        :rtype: RemoteCommandResult
-        """
-        if not argv:
-            raise ValueError('Parameter "argv" can not be empty.')
-
-        if not isinstance(argv, (str, list, tuple)):
-            raise TypeError('Parameter "argv" can be: str, list[any], tuple[any]')
-
-        if cwd is not None and not cwd:
-            raise ValueError('Parameter "cwd" can not be empty.')
-
-        if stdin is not None:
-            raise ValueError('stdin is not supported on Windows host')
-
-        command = self._open_shell(
-            'powershell -NonInteractive -Command -',
-            argv, log_stdout=log_stdout, encoding='utf-8'
-        )
-
-        def write(str: str) -> None:
-            command.stdin.write(str.encode('utf-8'))
-
-        # Set environment
-        for key, value in env.items():
-            value = self.__escape_argv(value)
-            write(f'$Env:{key} = "{value}"\n')
-
-        # Set working directory
-        if cwd is not None:
-            arg = self.__escape_argv(cwd)
-            write(f"cd '{arg}'\n")
-
-        argv = [argv] if isinstance(argv, (str, bytes)) else [f"'{self.__escape_argv(x)}'" for x in argv]
-        write(f"{' '.join(argv)}\n")
-        write('exit\n')
-        command.stdin.flush()
-        command.raiseonerr = raise_on_error
-
-        if wait:
-            command.wait()
-
-        return RemoteCommandResult(command)
-
     @property
     def conn(self) -> ldap.ldapobject.LDAPObject:
         """
@@ -639,7 +510,7 @@ class ADHost(ProviderHost):
         ''')
 
 
-class NFSHost(BaseHost):
+class NFSHost(MultihostHost):
     """
     NFS server host object.
 

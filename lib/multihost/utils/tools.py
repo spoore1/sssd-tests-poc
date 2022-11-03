@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import jc
 
-from ..host import BaseHost
+from ..host import MultihostHost
 from .base import MultihostUtility
 
 
@@ -252,10 +252,10 @@ class HostTools(MultihostUtility):
     Run various standard commands on remote host.
     """
 
-    def __init__(self, host: BaseHost) -> None:
+    def __init__(self, host: MultihostHost) -> None:
         """
         :param host: Remote host.
-        :type host: BaseHost
+        :type host: MultihostHost
         """
         super().__init__(host)
 
@@ -297,10 +297,10 @@ class HostGetent(MultihostUtility):
     Interface to getent command.
     """
 
-    def __init__(self, host: BaseHost) -> None:
+    def __init__(self, host: MultihostHost) -> None:
         """
         :param host: Remote host.
-        :type host: BaseHost
+        :type host: MultihostHost
         """
         super().__init__(host)
 

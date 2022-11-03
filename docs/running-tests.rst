@@ -59,16 +59,23 @@ use in the next examples.
 
 .. code-block:: yaml
 
-    root_password: 'Secret123'
     domains:
-    - name: test
-      type: sssd
+    - type: sssd
       hosts:
       - hostname: client.test
         role: client
+        username: root
+        password: Secret123
+        config:
+          artifacts:
+          - /etc/sssd/*
+          - /var/log/sssd/*
+          - /var/lib/sss/db/*
 
       - hostname: master.ldap.test
         role: ldap
+        username: root
+        password: Secret123
         config:
           binddn: cn=Directory Manager
           bindpw: Secret123
@@ -79,6 +86,8 @@ use in the next examples.
 
       - hostname: master.ipa.test
         role: ipa
+        username: root
+        password: Secret123
         config:
           client:
             ipa_domain: ipa.test
@@ -87,6 +96,8 @@ use in the next examples.
 
       - hostname: dc.samba.test
         role: samba
+        username: root
+        password: Secret123
         config:
           binddn: CN=Administrator,CN=Users,DC=samba,DC=test
           bindpw: Secret123
@@ -94,6 +105,13 @@ use in the next examples.
             ad_domain: samba.test
             krb5_keytab: /enrollment/samba.keytab
             ldap_krb5_keytab: /enrollment/samba.keytab
+
+      - hostname: nfs.test
+        role: nfs
+        username: root
+        password: Secret123
+        config:
+          exports_dir: /dev/shm/exports
 
 
 Running tests
@@ -103,10 +121,10 @@ Now, if you have setup the environment, you can run the tests with ``pytest``.
 
 .. code-block:: console
 
-    pytest --multihost-config mhc.yaml -v
+    pytest --mh-config mhc.yaml -v
 
 .. seealso::
 
   The multihost plugin also provides additional command line options for pytest,
-  especially: ``--collect-artifacts`` and ``--multihost-log-path``. See the
+  especially: ``--collect-artifacts`` and ``--mh-log-path``. See the
   documentation at :doc:`/api/lib/multihost/plugin`.

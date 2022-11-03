@@ -13,7 +13,7 @@ pip3 install -r ./requirements.txt
 ## Run tests
 
 ```
-pytest --multihost-config=mhc.yaml -v
+pytest --mh-log-path=mhc.yaml -v
 ```
 
 ## Build documentation

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..host import BaseHost
+from ..host import MultihostHost
 from .base import MultihostUtility
 
 
@@ -11,10 +11,10 @@ class HostAuthentication(MultihostUtility):
     Provides helpers to test authentication on remote host via su, sudo and ssh.
     """
 
-    def __init__(self, host: BaseHost) -> None:
+    def __init__(self, host: MultihostHost) -> None:
         """
         :param host: Remote host.
-        :type host: BaseHost
+        :type host: MultihostHost
         """
         super().__init__(host)
 
@@ -119,7 +119,7 @@ class HostSSH(AuthBase):
     Interface to ssh command.
     """
 
-    def __init__(self, host: BaseHost) -> None:
+    def __init__(self, host: MultihostHost) -> None:
         super().__init__(host)
 
         self.opts = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'

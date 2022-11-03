@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from ..ssh import SSHLog, SSHProcess, SSHProcessResult
 
-from ..host import BaseHost, ProviderHost
+from ..host import MultihostHost, ProviderHost
 from .base import MultihostUtility
 
 if TYPE_CHECKING:
@@ -23,7 +23,7 @@ class HostSSSD(MultihostUtility):
     All changes are automatically reverted when a test is finished.
     """
 
-    def __init__(self, host: BaseHost, fs: HostFileSystem, svc: HostService, load_config: bool = False) -> None:
+    def __init__(self, host: MultihostHost, fs: HostFileSystem, svc: HostService, load_config: bool = False) -> None:
         super().__init__(host)
         self.fs = fs
         self.svc = svc

@@ -2,6 +2,5 @@ Colorama
 jc
 parallel-ssh
 pytest
-pytest_multihost
 python-ldap
 PyYAML

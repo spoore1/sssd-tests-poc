@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 
-from ..host import BaseHost
+from ..host import MultihostHost
 from ..logging import MultihostLogger
 
 
@@ -18,12 +18,12 @@ class MultihostUtility(object):
     remote host.
     """
 
-    def __init__(self, host: BaseHost) -> None:
+    def __init__(self, host: MultihostHost) -> None:
         """
         :param host: Remote host instance.
-        :type host: BaseHost
+        :type host: MultihostHost
         """
-        self.host = host
+        self.host: MultihostHost = host
         self.logger: MultihostLogger = self.host.logger
 
     def setup(self) -> None:

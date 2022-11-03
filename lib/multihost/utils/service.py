@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ..ssh import SSHLog, SSHProcessResult, SSHProcess
-from ..host import BaseHost
+from ..host import MultihostHost
 from .base import MultihostUtility
 
 
@@ -10,7 +10,7 @@ class HostService(MultihostUtility):
     Manage remote services.
     """
 
-    def __init__(self, host: BaseHost) -> None:
+    def __init__(self, host: MultihostHost) -> None:
         super().__init__(host)
         self.initial_states: dict[str, bool] = {}
 

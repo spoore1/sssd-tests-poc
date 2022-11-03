@@ -303,7 +303,7 @@ expected host (``sssd.ldap[0]`` for ldap, ``sssd.ipa[0]`` for ipa etc.).
 
 .. code-block:: console
 
-    $ pytest --multihost-config mhc.yaml -k test_example -v
+    $ pytest --mh-config mhc.yaml -k test_example -v
     ...
     tests/test_basic.py::test_example (samba) PASSED                                                                                                                                                                                [ 12%]
     tests/test_basic.py::test_example (ad) PASSED                                                                                                                                                                                   [ 25%]
@@ -349,7 +349,7 @@ second time with ``mockvalue=2``.
 
 .. code-block:: console
 
-    $ pytest --multihost-config mhc.yaml -k test_example -v
+    $ pytest --mh-config mhc.yaml -k test_example -v
     ...
     tests/test_basic.py::test_example[1] (samba) PASSED                                                                                                                                                                                [ 12%]
     tests/test_basic.py::test_example[1] (ad) PASSED                                                                                                                                                                                   [ 25%]

@@ -1,16 +1,15 @@
 """
-Pytest multihost plugin. The main functionality is to make sure that only tests
-that can be run using the given multihost configuration are executed.
+Pytest multihost plugin.
 
-.. note::
-
-    This plugin is a high level wrapper around ``pytest_multihost`` with
-    additional functionality.
+This plugins allows to run tests on multiple remote hosts using SSH. One of the
+main functionality is to make sure that only tests that can be run using the
+given multihost configuration are executed.
 
 New command line options
 ========================
 
-* ``--multihost-log-path``: multihost logs will be printed to this file, use
+* ``--mh-config``: path to the multihost configuration file
+* ``--mh-log-path``: multihost logs will be printed to this file, use
   ``/dev/stdout`` if you want to print them to standard output (default: none)
 * ``--collect-artifacts``: ``never`` (never collect artifacts), ``on-failure``
   (only collect artifacts for failed test run), ``always`` (collect artifacts
@@ -21,7 +20,7 @@ New command line options
 
   .. code-block:: console
 
-      pytest --exact-topology --multihost-log-path ./test.log --multihost-config
+      pytest --exact-topology --mh-log-path ./test.log --mh-log-path
       mhc.yaml
 
 New markers

@@ -46,20 +46,17 @@ class MultihostPlugin(object):
 
     def __init__(self, config: pytest.Config) -> None:
         self.logger: logging.Logger = self._create_logger(config.option.verbose > 2)
-        self.confdict = {}
         self.multihost: MultihostConfig = None
         self.topology: Topology = None
         self.exact_topology: bool = config.getoption('exact_topology')
         self.artifacts_dir: bool = config.getoption('artifacts_dir')
         self.collect_artifacts: bool = config.getoption('collect_artifacts')
-        self.multihost_log_path: str = config.getoption('multihost_log_path')
+        self.multihost_log_path: str = config.getoption('mh_log_path')
+        self.multihost_config_path: str = config.getoption('mh_config')
+        self.confdict: dict = self.__load_conf(self.multihost_config_path)
 
-        pytest_multihost = config.pluginmanager.getplugin('MultihostPlugin')
-        if pytest_multihost:
-            self.confdict = pytest_multihost.confdict
-            self.confdict['log_path'] = self.multihost_log_path
-            self.multihost = MultihostConfig.from_dict(self.confdict)
-            self.topology = Topology.FromMultihostConfig(self.confdict)
+        self.multihost = MultihostConfig(self.confdict, log_path=self.multihost_log_path)
+        self.topology = Topology.FromMultihostConfig(self.confdict)
 
     @classmethod
     def GetLogger(cls) -> logging.Logger:
@@ -68,6 +65,16 @@ class MultihostPlugin(object):
         """
 
         return logging.getLogger('lib.multihost.plugin')
+
+    def __load_conf(self, path: str) -> dict:
+        if not path:
+            raise ValueError('You need to provide valid multihost configuration file, use --mh-config=$path')
+
+        try:
+            with open(path, 'r') as f:
+                return yaml.safe_load(f)
+        except Exception as e:
+            raise IOError(f'Unable to open multihost configuration "{path}": {str(e)}')
 
     @pytest.hookimpl(trylast=True)
     def pytest_sessionstart(self, session: pytest.Session) -> None:
@@ -80,7 +87,7 @@ class MultihostPlugin(object):
         if self.multihost is None:
             self.logger.info(self._fmt_bold('Multihost configuration:'))
             self.logger.info('  No multihost configuration provided.')
-            self.logger.info('  Make sure to run tests with --multihost-config parameter.')
+            self.logger.info('  Make sure to run tests with --mh-log-path parameter.')
             self.logger.info('')
             return
 
@@ -288,7 +295,11 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
-        "--multihost-log-path", action="store", help="Path to store multihost logs"
+        "--mh-log-path", action="store", help="Path to store multihost logs"
+    )
+
+    parser.addoption(
+        "--mh-config", action="store", help="Path to the multihost configuration file"
     )
 
     parser.addoption(

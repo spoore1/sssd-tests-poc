@@ -11,8 +11,7 @@ Basic definition
 .. code-block:: yaml
 
     domains:
-    - name: <dns domain name>
-      type: <domain type>
+    - type: <domain type>
       hosts:
       - hostname: <resolvable dns host name>
         role: <host role>
@@ -21,9 +20,8 @@ Basic definition
         config: <additional configuration>
 
 The top level element of the configuration is list of ``domains``. Each domain
-has ``name`` and ``type`` attributes and defines the list of available hosts.
+has ``type`` attribute and defines the list of available hosts.
 
-* ``name``: dns domain name that the hosts belong to
 * ``type``: domain identifier which is used in the path inside ``mh`` fixture, see :ref:`mh-fixture`
 * ``hosts``: list of available hosts and their roles
 

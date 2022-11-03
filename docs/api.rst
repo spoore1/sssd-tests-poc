@@ -4,7 +4,6 @@ API Reference
 .. toctree::
 
    api/lib/multihost/__init__
-   api/lib/multihost/command
    api/lib/multihost/config
    api/lib/multihost/host
    api/lib/multihost/logging
