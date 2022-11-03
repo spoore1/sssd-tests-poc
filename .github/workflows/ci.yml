@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   flake8:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: read
     steps:
@@ -26,7 +26,7 @@ jobs:
       run: flake8 .
 
   pycodestyle:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: read
     steps:
@@ -41,7 +41,7 @@ jobs:
       run: pycodestyle .
 
   isort:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: read
     steps:
@@ -56,7 +56,7 @@ jobs:
       run: isort --check-only .
 
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: read
     steps:
@@ -103,7 +103,7 @@ jobs:
         pytest --color=yes --mh-config ./mhc.yaml -vv ./tests/test_basic.py
 
   docs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: read
     steps:
