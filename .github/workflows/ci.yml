@@ -95,12 +95,12 @@ jobs:
     - name: Run demo tests
       run: |
         source .venv/bin/activate
-        pytest --color=yes --mh-config ./mhc.yaml -vv ./tests/test_demo.py
+        pytest --color=yes --mh-config=./mhc.yaml -vv ./tests/test_demo.py
 
     - name: Run basic tests
       run: |
         source .venv/bin/activate
-        pytest --color=yes --mh-config ./mhc.yaml -vv ./tests/test_basic.py
+        pytest --color=yes --mh-config=./mhc.yaml -vv ./tests/test_basic.py
 
   docs:
     runs-on: ubuntu-22.04

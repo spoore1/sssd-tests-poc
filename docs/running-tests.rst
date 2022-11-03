@@ -121,7 +121,7 @@ Now, if you have setup the environment, you can run the tests with ``pytest``.
 
 .. code-block:: console
 
-    pytest --mh-config mhc.yaml -v
+    pytest --mh-config=mhc.yaml -v
 
 .. seealso::
 

@@ -118,7 +118,7 @@ successful. Go to the root of sssd-tests-poc repository and run the tests with:
 
 .. code-blocK:: text
 
-    $ pytest --mh-config ./mhc.yaml --mh-log-path=./log -v ./tests/test_demo.py
+    $ pytest --mh-config=./mhc.yaml --mh-log-path=./log -v ./tests/test_demo.py
 
 Take the Course
 ***************
@@ -137,7 +137,7 @@ Now try to run the file with ``pytest``:
 
 .. code-block:: console
 
-    pytest --mh-config ./mhc.yaml --mh-log-path=./log -v ./tests/test_course.py
+    pytest --mh-config=./mhc.yaml --mh-log-path=./log -v ./tests/test_course.py
 
 Does it work? Good. Now, you can continue with the following tasks.
 
