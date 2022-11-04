@@ -123,6 +123,13 @@ class LogExtraDataFilter(logging.Filter):
 
             return out
 
+        if isinstance(o, list):
+            out = ''
+            for value in o:
+                out += '\n- ' + str(value)
+
+            return out
+
         value = str(o)
         if '\n' not in value:
             return value

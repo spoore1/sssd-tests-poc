@@ -34,6 +34,11 @@ class SSHLog(Enum):
     Command execution, its return code and output is logged.
     """
 
+    Error = auto()
+    """
+    Only log the command and its result on non-zero exit code.
+    """
+
 
 class SSHProcess(object):
     """
@@ -196,7 +201,7 @@ class SSHProcess(object):
             )
         )
 
-        if self.__log_level != SSHLog.Silent:
+        if self.__log_level in (SSHLog.Short, SSHLog.Full):
             self.__logger.info(
                 self.__msg_execution(),
                 extra={'data': {
@@ -254,6 +259,21 @@ class SSHProcess(object):
         code = self.__conn._eagain_errcode(self.__process.channel.get_exit_status, -1)
 
         result = SSHProcessResult(code, self.__stdout, self.__stderr)
+
+        if self.__log_level == SSHLog.Error and result.rc != 0:
+            self.__logger.error(
+                self.__msg_completed_async(result.rc),
+                extra={'data': {
+                    'Host': self.__conn.host,
+                    'User': self.__conn.user,
+                    'Command': self.command,
+                    'Input': self.input,
+                    'Working directory': self.cwd,
+                    'Extra environment': self.env,
+                    'Output': result.stdout,
+                    'Error output': result.stderr,
+                }}
+            )
 
         if self.__sync_exec:
             match self.__log_level:
