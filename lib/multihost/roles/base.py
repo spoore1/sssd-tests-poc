@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from lib.multihost.ssh import SSHClient
 
 from ..host import MultihostHost
+from ..ssh import SSHBashProcess
 from ..utils.auth import HostAuthentication
 from ..utils.authselect import HostAuthselect
 from ..utils.base import MultihostUtility
@@ -80,7 +81,7 @@ class BaseRole(object):
         """
         pass
 
-    def ssh(self, user: str, password: str, *, shell='/bin/bash -c') -> SSHClient:
+    def ssh(self, user: str, password: str, *, shell=SSHBashProcess) -> SSHClient:
         """
         Open SSH connection to the host as given user.
 
@@ -88,12 +89,12 @@ class BaseRole(object):
         :type user: str
         :param password: User password.
         :type password: str
-        :param shell: Shell that will run the commands, defaults to '/bin/bash -c'
+        :param shell: Shell that will run the commands, defaults to SSHBashProcess
         :type shell: str, optional
         :return: SSH client connection.
         :rtype: SSHClient
         """
-        return SSHClient(self.host.hostname, user=user, password=password, logger=self.mh.logger)
+        return SSHClient(self.host.hostname, user=user, password=password, shell=shell, logger=self.mh.logger)
 
 
 class BaseObject(object):

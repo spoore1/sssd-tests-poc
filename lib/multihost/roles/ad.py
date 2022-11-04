@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..host import ADHost
-from ..ssh import SSHProcessResult
+from ..ssh import SSHClient, SSHPowerShellProcess, SSHProcessResult
 from ..utils.ldap import HostLDAP
 from .base import BaseObject, WindowsRole
 from .nfs import NFSExport
@@ -44,6 +44,21 @@ class AD(WindowsRole):
         """
         self.host.restore()
         super().teardown()
+
+    def ssh(self, user: str, password: str, *, shell=SSHPowerShellProcess) -> SSHClient:
+        """
+        Open SSH connection to the host as given user.
+
+        :param user: Username.
+        :type user: str
+        :param password: User password.
+        :type password: str
+        :param shell: Shell that will run the commands, defaults to SSHPowerShellProcess
+        :type shell: str, optional
+        :return: SSH client connection.
+        :rtype: SSHClient
+        """
+        super().ssh(user, password, shell=shell)
 
     def user(self, name: str, basedn: ADObject | str | None = 'cn=users') -> ADUser:
         """

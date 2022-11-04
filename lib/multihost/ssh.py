@@ -201,6 +201,7 @@ class SSHProcess(object):
                 self.__msg_execution(),
                 extra={'data': {
                     'Host': self.__conn.host,
+                    'Shell': self.shell,
                     'User': self.__conn.user,
                     'Command': self.command,
                     'Input': self.input,
