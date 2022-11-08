@@ -47,20 +47,18 @@ class HostFileSystem(MultihostUtility):
         :type user: str, optional
         :param group: Group, defaults to None
         :type group: str, optional
-        :raises OSError: If directory can not be created.
         """
-        cmd = f'''
-        set -x
-
-        mkdir '{path}'
-        {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
-        '''
-
+        self.backup(path)
         self.logger.info(f'Creating directory "{path}" on {self.host.hostname}')
-        result = self.host.ssh.run(cmd, raise_on_error=False, log_level=SSHLog.Error)
-        if result.rc != 0:
-            raise OSError(result.stderr)
-
+        self.host.ssh.run(
+            f'''
+                set -ex
+                rm -fr '{path}'
+                mkdir '{path}'
+                {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
+            ''',
+            log_level=SSHLog.Error
+        )
         self.__rollback.append(f"rm -fr '{path}'")
 
     def mkdir_p(self, path: str, *, mode: str = None, user: str = None, group: str = None) -> None:
@@ -75,19 +73,18 @@ class HostFileSystem(MultihostUtility):
         :type user: str, optional
         :param group: Group, defaults to None
         :type group: str, optional
-        :raises OSError: If directory can not be created.
         """
-        cmd = f'''
-        set -x
-
-        mkdir -v -p '{path}' | head -1 | sed -E "s/mkdir:[^']+'(.+)'$/\\1/"
-        {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
-        '''
-
+        self.backup(path)
         self.logger.info(f'Creating directory "{path}" (with parents) on {self.host.hostname}')
-        result = self.host.ssh.run(cmd, raise_on_error=False, log_level=SSHLog.Error)
-        if result.rc != 0:
-            raise OSError(result.stderr)
+        result = self.host.ssh.run(
+            f'''
+                set -ex
+                rm -fr '{path}'
+                mkdir -v -p '{path}' | head -1 | sed -E "s/mkdir:[^']+'(.+)'$/\\1/"
+                {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
+            ''',
+            log_level=SSHLog.Error
+        )
 
         if result.stdout:
             self.__rollback.append(f"rm -fr '{result.stdout}'")
@@ -107,24 +104,25 @@ class HostFileSystem(MultihostUtility):
         :rtype: str
         """
 
-        cmd = '''
-        set -x
-
-        tmp=`mktemp /tmp/mh.fs.rollback.XXXXXXXXX`
-        echo $tmp
-        '''
-
         self.logger.info(f'Creating temporary file on {self.host.hostname}')
-        result = self.host.ssh.run(cmd, raise_on_error=False, log_level=SSHLog.Error)
-        if result.rc != 0:
-            raise OSError(result.stderr)
+        result = self.host.ssh.run(
+            '''
+                set -ex
+                tmp=`mktemp /tmp/mh.fs.rollback.XXXXXXXXX`
+                echo $tmp
+            ''',
+            log_level=SSHLog.Error
+        )
 
         tmpfile = result.stdout.strip()
         if not tmpfile:
             raise OSError("Temporary file was not created")
 
-        self.__rollback.append(f"rm -fr '{tmpfile}'")
-        result = self.host.ssh.run(self.__gen_chattrs(tmpfile, mode=mode, user=user, group=group), raise_on_error=False)
+        self.__rollback.append(f"rm --force '{tmpfile}'")
+
+        attrs = self.__gen_chattrs(tmpfile, mode=mode, user=user, group=group)
+        if attrs:
+            self.host.ssh.run(attrs, log_level=SSHLog.Error)
 
         return tmpfile
 
@@ -134,14 +132,11 @@ class HostFileSystem(MultihostUtility):
 
         :param path: File path.
         :type path: str
-        :raises OSError: If file can not be read.
         :return: File contents.
         :rtype: str
         """
         self.logger.info(f'Reading file "{path}" on {self.host.hostname}')
-        result = self.host.ssh.exec(['cat', path], raise_on_error=False, log_level=SSHLog.Error)
-        if result.rc != 0:
-            raise OSError(result.stderr)
+        result = self.host.ssh.exec(['cat', path], log_level=SSHLog.Error)
 
         return result.stdout
 
@@ -170,37 +165,65 @@ class HostFileSystem(MultihostUtility):
         :type group: str, optional
         :param dedent: Automatically dedent and strip file contents, defaults to True
         :type dedent: bool, optional
-        :raises OSError: If file can not be written.
         """
         if dedent:
             contents = textwrap.dedent(contents).strip()
 
-        cmd = f'''
-        set -x
-
-        if [ -f '{path}' ]; then
-            tmp=`mktemp /tmp/mh.fs.rollback.XXXXXXXXX`
-            mv --force '{path}' "$tmp"
-        fi
-
-        cat >> '{path}'
-        {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
-        echo $tmp
-        '''
-
+        self.backup(path)
         self.logger.info(
             f'Writing file "{path}" on {self.host.hostname}',
             extra={'data': {'Contents': contents}}
         )
-        result = self.host.ssh.run(cmd, input=contents, raise_on_error=False, log_level=SSHLog.Error)
-        if result.rc != 0:
-            raise OSError(result.stderr)
 
-        tmpfile = result.stdout.strip()
-        if tmpfile:
-            self.__rollback.append(f"mv --force '{tmpfile}' '{path}'")
-        else:
-            self.__rollback.append(f"rm -fr '{path}'")
+        self.host.ssh.run(
+            f'''
+                set -ex
+                rm -fr '{path}'
+                cat > '{path}'
+                {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
+            ''',
+            input=contents, log_level=SSHLog.Error
+        )
+        self.__rollback.append(f"rm --force '{path}'")
+
+    def upload(
+        self,
+        local_path: str,
+        remote_path: str,
+        *,
+        mode: str = None,
+        user: str = None,
+        group: str = None,
+    ) -> None:
+        """
+        Upload local file.
+
+        :param local_path: Source local path.
+        :type local_path: str
+        :param remote_path: Destination remote path.
+        :type remote_path: str
+        :param mode: Access mode (chmod value), defaults to None
+        :type mode: str, optional
+        :param user: Owner, defaults to None
+        :type user: str, optional
+        :param group: Group, defaults to None
+        :type group: str, optional
+        """
+        self.backup(remote_path)
+        self.logger.info(f'Uploading file "{local_path}" to "{self.host.hostname}:{remote_path}"')
+        with open(local_path, 'rb') as f:
+            encoded = base64.b64encode(f.read()).decode('utf-8')
+
+        self.host.ssh.run(
+            f'''
+                set -ex
+                rm -fr '{remote_path}'
+                base64 --decode > '{remote_path}'
+                {self.__gen_chattrs(remote_path, mode=mode, user=user, group=group)}
+            ''',
+            input=encoded, log_level=SSHLog.Error
+        )
+        self.__rollback.append(f"rm --force '{remote_path}'")
 
     def download(self, remote_path: str, local_path: str) -> None:
         """
@@ -240,6 +263,39 @@ class HostFileSystem(MultihostUtility):
 
         with open(local_path, 'wb') as f:
             f.write(base64.b64decode(result.stdout))
+
+    def backup(self, path: str) -> bool:
+        """
+        Backup file or directory.
+
+        The path is automatically restored from the backup when a test is finished.
+
+        :param path: Path to back up.
+        :type path: str
+        :return: True if the path exists and backup was done, False otherwise.
+        :rtype: bool
+        """
+        self.logger.info(f'Creating a backup of "{path}" on {self.host.hostname}')
+        result = self.host.ssh.run(f'''
+        set -ex
+
+        if [ -f '{path}' ]; then
+            tmp=`mktemp /tmp/mh.fs.rollback.XXXXXXXXX`
+            cp --force --archive '{path}' "$tmp"
+            echo "$tmp"
+        elif [ -d '{path}' ]; then
+            tmp=`mktemp -d /tmp/mh.fs.rollback.XXXXXXXXX`
+            cp --force --archive '{path}/.' "$tmp"
+            echo "$tmp"
+        fi
+        ''', log_level=SSHLog.Error)
+
+        tmpfile = result.stdout.strip()
+        if tmpfile:
+            self.__rollback.append(f"mv --force '{tmpfile}' '{path}'")
+            return True
+
+        return False
 
     def __gen_chattrs(self, path: str, *, mode: str = None, user: str = None, group: str = None) -> str:
         cmds = []
