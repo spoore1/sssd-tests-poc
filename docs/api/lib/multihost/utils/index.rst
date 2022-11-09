@@ -8,6 +8,7 @@ lib.multihost.utils
    automount
    base
    fs
+   local_users
    service
    sssd
    tools

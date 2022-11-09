@@ -3,8 +3,9 @@ How to guides
 
 .. toctree::
 
-   using-roles
-   testing-identity
+   ssh-client
    testing-authentication
    testing-autofs
-   ssh-client
+   testing-identity
+   using-roles
+   local-users

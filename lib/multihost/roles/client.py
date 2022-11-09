@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from ..host import MultihostHost
 from ..utils.automount import HostAutomount
+from ..utils.local_users import HostLocalUsers
 from ..utils.sssd import HostSSSD
 from .base import LinuxRole
 
@@ -22,6 +23,11 @@ class Client(LinuxRole):
         self.automount: HostAutomount = HostAutomount(host, self.svc)
         """
         API for automount testing.
+        """
+
+        self.local: HostLocalUsers = HostLocalUsers(host)
+        """
+        API for local users and groups.
         """
 
     def setup(self) -> None:
