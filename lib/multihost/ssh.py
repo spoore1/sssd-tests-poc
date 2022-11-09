@@ -741,8 +741,10 @@ class SSHClient(object):
         :type read_timeout: float, optional
         :param log_level: Log level, defaults to SSHLog.Full
         :type log_level: SSHLog, optional
-        :param raise_on_failure: If True, raise :class:`SSHProcessError` if command exited with non-zero return code.
-        :type log_level: SSHLog, optional
+        :param raise_on_error: If True, raise :class:`SSHProcessError` if
+            command exited with non-zero return code, defaults to True
+        :type raise_on_error: bool, optional
+        :raises SSHProcessError: If ``raise_on_error`` is True and the command exited with non-zero return code.
         :return: Command result.
         :rtype: SSHProcessResult
         """
@@ -830,8 +832,8 @@ class SSHClient(object):
         Blocking command call.
 
         The command is run under shell specified in the constructor and it is
-        executed immediately. It waits for the command to finish and returns
-        its result.
+        executed immediately. It waits for the command to finish and returns its
+        result.
 
         The command is provided as ``argv`` list.
 
@@ -848,8 +850,10 @@ class SSHClient(object):
         :type read_timeout: float, optional
         :param log_level: Log level, defaults to SSHLog.Full
         :type log_level: SSHLog, optional
-        :param raise_on_failure: If True, raise :class:`SSHProcessError` if command exited with non-zero return code.
-        :type log_level: SSHLog, optional
+        :param raise_on_error: If True, raise :class:`SSHProcessError` if
+            command exited with non-zero return code, defaults to True
+        :type raise_on_error: bool, optional
+        :raises SSHProcessError: If ``raise_on_error`` is True and the command exited with non-zero return code.
         :return: Command result.
         :rtype: SSHProcessResult
         """
