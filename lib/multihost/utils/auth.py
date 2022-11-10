@@ -96,14 +96,78 @@ class HostSU(AuthBase):
 
             expect {{
                 "Password:" {{send "{password}\n"}}
-                timeout {{puts "expect result: Unexpected su output"; exit 1}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
                 eof {{puts "expect result: Unexpected end of file"; exit 2}}
             }}
 
             expect {{
                 -re $prompt {{puts "expect result: Password authentication successful"; exit 0}}
                 "Authentication failure" {{puts "expect result: Authentication failure"; exit 4}}
-                timeout {{puts "expect result: Unexpected su output"; exit 1}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            puts "expect result: Unexpected code path"
+            exit 3
+        """)
+
+        return rc == 0
+
+    def password_expired(self, username: str, password: str, new_password: str) -> bool:
+        """
+        SSH to the remote host and change expired password after successful authentication.
+
+        :param username: User name.
+        :type name: str
+        :param password: Old, expired user password.
+        :type password: str
+        :param new_password: New user password.
+        :type new_password: str
+        :return: True if authentication and password change was successful, False otherwise.
+        :rtype: bool
+        """
+        rc = self._expect(rf"""
+            # It takes some time to get authentication failure
+            set timeout 10
+            set prompt "\n.*\[#\$>\] $"
+
+            spawn su - "{username}"
+
+            expect {{
+                "Password:" {{send "{password}\n"}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            expect {{
+                "Password expired. Change your password now." {{ }}
+                -re $prompt {{puts "expect result: Authentication succeeded without password change"; exit 3}}
+                "Authentication failure" {{puts "expect result: Authentication failure"; exit 4}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            expect {{
+                "Current Password:" {{send "{password}\n"}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            expect {{
+                "New password:" {{send "{new_password}\n"}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            expect {{
+                "Retype new password:" {{send "{new_password}\n"}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            expect {{
+                -re $prompt {{puts "expect result: Password change was successful"; exit 0}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
                 eof {{puts "expect result: Unexpected end of file"; exit 2}}
             }}
 
@@ -148,15 +212,87 @@ class HostSSH(AuthBase):
 
             expect {{
                 "password:" {{send "{password}\n"}}
-                timeout {{puts "expect result: Unexpected su output"; exit 1}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
                 eof {{puts "expect result: Unexpected end of file"; exit 2}}
             }}
 
             expect {{
                 -re $prompt {{puts "expect result: Password authentication successful"; exit 0}}
                 "{username}@localhost: Permission denied" {{puts "expect result: Authentication failure"; exit 4}}
-                timeout {{puts "expect result: Unexpected su output"; exit 1}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
                 eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            puts "expect result: Unexpected code path"
+            exit 3
+        """)
+
+        return rc == 0
+
+    def password_expired(self, username: str, password: str, new_password: str) -> bool:
+        """
+        SSH to the remote host and change expired password after successful authentication.
+
+        :param username: User name.
+        :type name: str
+        :param password: Old, expired user password.
+        :type password: str
+        :param new_password: New user password.
+        :type new_password: str
+        :return: True if authentication and password change was successful, False otherwise.
+        :rtype: bool
+        """
+        rc = self._expect(rf"""
+            # It takes some time to get authentication failure
+            set timeout 10
+            set prompt "\n.*\[#\$>\] $"
+
+            spawn ssh {self.opts} \
+                -o PreferredAuthentications=password \
+                -o NumberOfPasswordPrompts=1 \
+                -l "{username}" localhost
+
+            expect {{
+                "password:" {{send "{password}\n"}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            expect {{
+                "Password expired. Change your password now." {{ }}
+                -re $prompt {{puts "expect result: Authentication succeeded without password change"; exit 3}}
+                "{username}@localhost: Permission denied" {{puts "expect result: Authentication failure"; exit 4}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            expect {{
+                "Current Password:" {{send "{password}\n"}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            expect {{
+                "New password:" {{send "{new_password}\n"}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            expect {{
+                "Retype new password:" {{send "{new_password}\n"}}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            expect {{
+                "passwd: all authentication tokens updated successfully." {{ }}
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Unexpected end of file"; exit 2}}
+            }}
+
+            expect {{
+                timeout {{puts "expect result: Unexpected output"; exit 1}}
+                eof {{puts "expect result: Password change was successful"; exit 0}}
             }}
 
             puts "expect result: Unexpected code path"
