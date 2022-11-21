@@ -221,9 +221,11 @@ class LDAPHost(ProviderHost):
 
         data = self.conn.search_s(self.naming_context, ldap.SCOPE_SUBTREE)
         config = self.conn.search_s('cn=config', ldap.SCOPE_BASE)
+        nc = self.conn.search_s(self.naming_context, ldap.SCOPE_BASE, attrlist=['aci'])
 
         dct = self.ldap_result_to_dict(data)
         dct.update(self.ldap_result_to_dict(config))
+        dct.update(self.ldap_result_to_dict(nc))
         self.__backup = dct
 
     def restore(self) -> None:
@@ -238,10 +240,12 @@ class LDAPHost(ProviderHost):
         """
         data = self.conn.search_s(self.naming_context, ldap.SCOPE_SUBTREE)
         config = self.conn.search_s('cn=config', ldap.SCOPE_BASE)
+        nc = self.conn.search_s(self.naming_context, ldap.SCOPE_BASE, attrlist=['aci'])
 
         # Convert list of tuples to dictionary for better lookup
         data = self.ldap_result_to_dict(data)
         data.update(self.ldap_result_to_dict(config))
+        data.update(self.ldap_result_to_dict(nc))
 
         for dn, attrs in reversed(data.items()):
             # Restore records that were modified
