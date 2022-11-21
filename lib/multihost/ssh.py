@@ -9,6 +9,7 @@ from typing import Any, Generator, Type
 import colorama as c
 import pssh.clients.base.single
 import pssh.clients.ssh
+import pssh.exceptions
 import pssh.output
 
 from .logging import MultihostLogger
@@ -525,6 +526,16 @@ class SSHProcessError(Exception):
         self.stderr = stderr
 
 
+class SSHAuthenticationError(Exception):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        user: str,
+    ) -> None:
+        super().__init__(f'Unable to authenticate as "{user}" at {host}:{port} over SSH')
+
+
 class SSHClient(object):
     """
     Interactive SSH client.
@@ -628,6 +639,8 @@ class SSHClient(object):
     def connect(self) -> None:
         """
         Connect to the host.
+
+        :raises SSHAuthenticationError: If user fails to authenticate.
         """
         if self.connected:
             return
@@ -637,12 +650,21 @@ class SSHClient(object):
             + self.logger.colorize(self.host, c.Fore.BLUE, c.Style.BRIGHT)
         )
 
-        self.__conn = pssh.clients.ssh.SSHClient(
-            host=self.host,
-            user=self.user,
-            password=self.password,
-            port=self.port,
-        )
+        try:
+            self.__conn = pssh.clients.ssh.SSHClient(
+                host=self.host,
+                user=self.user,
+                password=self.password,
+                port=self.port,
+                identity_auth=False,
+                gssapi_auth=False,
+                allow_agent=False,
+                num_retries=1
+            )
+        except pssh.exceptions.AuthenticationError:
+            e = SSHAuthenticationError(self.host, self.port, self.user)
+            self.logger.error(str(e))
+            raise e
 
     def disconnect(self) -> None:
         """
