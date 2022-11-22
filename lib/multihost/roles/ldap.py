@@ -28,6 +28,11 @@ class LDAP(LinuxRole):
         self.auto_gid: int = 33000
         self.auto_ou: dict[str, bool] = {}
 
+        self.aci: LDAPACI = LDAPACI(self)
+        """
+        Provides API to manipulate naming context ACI records.
+        """
+
         self.automount: LDAPAutomount = LDAPAutomount(self)
         """
         Provides API to manipulate automount objects.
@@ -268,6 +273,51 @@ class LDAPObject(BaseObject):
         (_, attrs) = result[0]
 
         return {k: [i.decode('utf-8') for i in v] for k, v in attrs.items()}
+
+
+class LDAPACI(object):
+    """
+    LDAP ACI records management.
+    """
+
+    def __init__(self, role: LDAP) -> None:
+        """
+        :param role: LDAP role object.
+        :type role: LDAP
+        """
+        self.role: LDAP = role
+        self.ldap: HostLDAP = self.role.ldap
+        self.dn: str = self.ldap.naming_context
+
+    def add(self, value: str):
+        """
+        Add new ACI record.
+
+        :param value: ACI value
+        :type value: str
+        """
+        self.ldap.modify(self.dn, add={'aci': value})
+
+    def modify(self, old: str, new: str):
+        """
+        Modify existing ACI record.
+
+        :param old: Old ACI value
+        :type old: str
+        :param new: New ACI value
+        :type new: str
+        """
+        self.delete(old)
+        self.add(new)
+
+    def delete(self, value: str):
+        """
+        Delete existing ACI record.
+
+        :param value: ACI value
+        :type value: str
+        """
+        self.ldap.modify(self.dn, delete={'aci': value})
 
 
 class LDAPOrganizationalUnit(LDAPObject):
