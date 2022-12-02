@@ -546,6 +546,9 @@ class NFSHost(MultihostHost):
         Restore NFS server to its initial contents.
         """
 
+        if not self.__backup:
+            return
+
         self.ssh.run(fr'''
         rm -fr "{self.exports_dir}/*"
         rm -fr /etc/exports.d/*
