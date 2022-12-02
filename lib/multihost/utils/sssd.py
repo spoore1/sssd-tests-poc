@@ -6,6 +6,7 @@ from io import StringIO
 from typing import TYPE_CHECKING
 
 from ..host import MultihostHost, ProviderHost
+from ..roles.kdc import KDC
 from ..ssh import SSHLog, SSHProcess, SSHProcessResult
 from .base import MultihostUtility
 
@@ -29,6 +30,11 @@ class HostSSSD(MultihostUtility):
         self.config = configparser.ConfigParser(interpolation=None)
         self.default_domain = None
         self.__load_config = load_config
+
+        self.common: SSSDCommonConfiguration = SSSDCommonConfiguration(self)
+        """
+        Setup common SSSD configuration.
+        """
 
     def setup(self) -> None:
         """
@@ -263,6 +269,29 @@ class HostSSSD(MultihostUtility):
         if self.default_domain is None:
             self.default_domain = name
 
+    def merge_domain(self, name: str, role: BaseRole) -> None:
+        """
+        Merge SSSD domain configuration from role object into the domain.
+
+        If domain name is not provided then the default domain is used.
+
+        :param name: Target SSSD domain name
+        :type name: str
+        :param role: Provider role object to use for import.
+        :type role: BaseRole
+        :raises ValueError: If unsupported provider is given.
+        """
+        if not isinstance(role.host, ProviderHost):
+            raise ValueError(f'Host type {type(role.host)} can not be imported as domain')
+
+        if name is None:
+            name = self.default_domain
+
+        if f'domain/{name}' not in self.config:
+            raise ValueError(f'Domain "{name}" does not yet exist, create it first')
+
+        self.dom(name).update(role.host.client)
+
     def config_dumps(self) -> str:
         """
         Get current SSSD configuration.
@@ -476,3 +505,47 @@ class HostSSSD(MultihostUtility):
                 cfg[section]['debug_level'] = debug_level
 
         return cfg
+
+
+class SSSDCommonConfiguration(object):
+    """
+    Common SSSD configuration.
+
+    This class provides shortcuts to setup SSSD for common scenarios.
+    """
+    def __init__(self, sssd: HostSSSD) -> None:
+        self.sssd: HostSSSD = sssd
+
+    def krb5_auth(self, kdc: KDC, domain: str | None = None) -> None:
+        """
+        Configure auth_provider to krb5, using the KDC from the multihost
+        configuration.
+
+        #. Merge KDC configuration into the given domain (or default domain)
+        #. Generate /etc/krb5.conf from given KDC role
+
+        :param kdc: KDC role object.
+        :type kdc: KDC
+        :param domain: Existing domain name, defaults to None (= default domain)
+        :type domain: str | None, optional
+        :raises ValueError: if invalid domain is given.
+        """
+        if domain is None:
+            domain = self.sssd.default_domain
+
+        if domain is None:
+            raise ValueError('No domain specified!')
+
+        self.sssd.merge_domain(domain, kdc)
+        self.sssd.fs.write('/etc/krb5.conf', kdc.config(), user='root', group='root', mode='0644')
+
+    def kcm(self, kdc: KDC) -> None:
+        """
+        Configure Kerberos to allow KCM tests.
+
+        #. Generate /etc/krb5.conf from given KDC role
+
+        :param kdc: KDC role object.
+        :type kdc: KDC
+        """
+        self.sssd.fs.write('/etc/krb5.conf', kdc.config(), user='root', group='root', mode='0644')

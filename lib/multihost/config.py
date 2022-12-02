@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Type
 
-from .host import ADHost, IPAHost, LDAPHost, MultihostHost, NFSHost, SambaHost
+from .host import ADHost, IPAHost, KDCHost, LDAPHost, MultihostHost, NFSHost, SambaHost
 from .logging import MultihostLogger
 
 
@@ -74,6 +74,7 @@ class MultihostDomain(object):
             'ipa': IPAHost,
             'samba': SambaHost,
             'nfs': NFSHost,
+            'kdc': KDCHost,
         }
 
     def hosts_by_role(self, role: str) -> list[MultihostHost]:

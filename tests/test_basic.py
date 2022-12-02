@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from lib.multihost import KnownTopology, Multihost, Topology, TopologyDomain
-from lib.multihost.roles import AD, IPA, LDAP, Client, GenericADProvider, GenericProvider, Samba
+from lib.multihost.roles import AD, IPA, KDC, LDAP, Client, GenericADProvider, GenericProvider, Samba
 
 
 @pytest.mark.topology('client', Topology(TopologyDomain('sssd', client=1)))
@@ -272,6 +272,15 @@ def test_ad_ou(client: Client, ad: AD):
     # assert result.user.name == 'tuser'
 
 
-@pytest.mark.topology(KnownTopology.Client)
-def test_ssh_client(client: Client):
-    client.host.ssh.run('rm -fr /var/lib/sss/db/*')
+@pytest.mark.topology(KnownTopology.LDAP)
+def test_kdc(client: Client, ldap: LDAP, kdc: KDC):
+    ldap.user('tuser').add()
+    kdc.principal('tuser').add()
+
+    client.sssd.common.krb5_auth(kdc)
+    client.sssd.start()
+
+    with client.ssh('tuser', 'Secret123') as ssh:
+        with client.auth.kerberos(ssh) as krb:
+            result = krb.klist()
+            assert f'krbtgt/{kdc.realm}@{kdc.realm}' in result.stdout

@@ -1,4 +1,4 @@
-Colorama
+colorama
 jc
 parallel-ssh
 pytest

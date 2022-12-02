@@ -25,8 +25,8 @@ class KnownTopology(Enum):
 
     Client = TopologyMark(
         name='client',
-        topology=Topology(TopologyDomain('sssd', client=1)),
-        fixtures=dict(client='sssd.client[0]'),
+        topology=Topology(TopologyDomain('sssd', client=1, kdc=1)),
+        fixtures=dict(client='sssd.client[0]', kdc='sssd.kdc[0]'),
     )
     """
     .. topology-mark:: KnownTopology.Client
@@ -34,9 +34,11 @@ class KnownTopology(Enum):
 
     LDAP = TopologyMark(
         name='ldap',
-        topology=Topology(TopologyDomain('sssd', client=1, ldap=1, nfs=1)),
+        topology=Topology(TopologyDomain('sssd', client=1, ldap=1, nfs=1, kdc=1)),
         domains=dict(test='sssd.ldap[0]'),
-        fixtures=dict(client='sssd.client[0]', ldap='sssd.ldap[0]', provider='sssd.ldap[0]', nfs='sssd.nfs[0]'),
+        fixtures=dict(
+            client='sssd.client[0]', ldap='sssd.ldap[0]', provider='sssd.ldap[0]', nfs='sssd.nfs[0]', kdc='sssd.kdc[0]'
+        ),
     )
     """
     .. topology-mark:: KnownTopology.LDAP

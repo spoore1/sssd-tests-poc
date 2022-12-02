@@ -63,3 +63,15 @@ domains:
     password: Secret123
     config:
       exports_dir: /dev/shm/exports
+
+  - hostname: kdc.test
+    role: kdc
+    username: root
+    password: Secret123
+    config:
+      realm: TEST
+      domain: test
+      client:
+        krb5_server: kdc.test
+        krb5_kpasswd: kdc.test
+        krb5_realm: TEST

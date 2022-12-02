@@ -44,6 +44,7 @@ Currently available roles are:
 * ``ad``: Active Directory server
 * ``samba``: Samba DC
 * ``nfs``: NFS server
+* ``kdc``: KDC server
 
 client
 ======
@@ -227,10 +228,36 @@ Additional configuration (host/config section)
   directories that will be created and exported on the NFS server. On
   containers, this should be ``/dev/shm/exports`` or other writable location
   that runs on ``tmpfs`` file system.
+* :ref:`config-artifacts`
 
 .. seealso::
 
     `Example setup of the NFS host <https://github.com/SSSD/sssd-ci-containers/blob/master/src/ansible/roles/nfs/tasks/main.yml>`__
+
+kdc
+===
+
+Fresh installation of Kerberos KDC server, with the server running and no additional principals.
+
+.. code-block:: yaml
+    :caption: KDC role example
+
+    - hostname: kdc.test
+      role: kdc
+      username: root
+      password: Secret123
+
+Additional configuration (host/config section)
+----------------------------------------------
+
+* ``domain``: Default Kerberos domain.
+* ``realm``: Default Kerberos realm.
+* :ref:`config-artifacts`
+* :ref:`config-providers-client`
+
+.. seealso::
+
+    `Example setup of the KDC host <https://github.com/SSSD/sssd-ci-containers/blob/master/src/ansible/roles/kdc/tasks/main.yml>`__
 
 Additional configuration (host/config section)
 **********************************************

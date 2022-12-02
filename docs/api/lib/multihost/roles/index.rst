@@ -12,3 +12,4 @@ lib.multihost.roles
    ldap
    samba
    nfs
+   kdc

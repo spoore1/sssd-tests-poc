@@ -102,6 +102,26 @@ class ProviderHost(MultihostHost):
     """
     Generic provider host.
 
+    Allows to provide additional client configuration for the domain.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        :param \\*args: MultihostHost arguments.
+        :type \\*args: Any
+        :param \\*kwargs: MultihostHost keyword arguments.
+        :type \\*kwargs: Any
+        :param tls: Require TLS connection, defaults to True
+        :type tls: bool, optional
+        """
+        super().__init__(*args, **kwargs)
+        self.client: dict[str, any] = self.config.get('client', {})
+
+
+class LDAPProviderHost(ProviderHost):
+    """
+    Generic provider host with direct LDAP access.
+
     Provides access to LDAP connection for direct manipulation with remote
     directory server.
     """
@@ -116,7 +136,6 @@ class ProviderHost(MultihostHost):
         :type tls: bool, optional
         """
         super().__init__(*args, **kwargs)
-        self.client: dict[str, any] = self.config.get('client', {})
 
         self.tls = tls
         self.uri = f'ldap://{self.hostname}'
@@ -191,7 +210,7 @@ class ProviderHost(MultihostHost):
         return dict((dn, attrs) for dn, attrs in result if dn is not None)
 
 
-class LDAPHost(ProviderHost):
+class LDAPHost(LDAPProviderHost):
     """
     LDAP host object.
 
@@ -333,10 +352,10 @@ class IPAHost(ProviderHost):
         if self.__backup is None:
             return
 
-        self.ssh.exec(['ipa-restore', '--unattended', '--password', self.bindpw, '--data', '--online', self.__backup])
+        self.ssh.exec(['ipa-restore', '--unattended', '--password', self.adminpw, '--data', '--online', self.__backup])
 
 
-class SambaHost(ProviderHost):
+class SambaHost(LDAPProviderHost):
     """
     Samba host object.
 
@@ -555,3 +574,42 @@ class NFSHost(MultihostHost):
         tar -xf /tmp/mh.nfs.backup.tgz -C /
         exportfs -r
         ''')
+
+
+class KDCHost(ProviderHost):
+    """
+    Kerberos KDC server host object.
+
+    Provides KDC service management.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.realm: str = self.config.get('realm', 'TEST')
+        self.domain: str = self.config.get('domain', 'test')
+
+        self.client['auth_provider'] = 'krb5'
+
+        # Backup of original data
+        self.__backup: bool = False
+
+    def backup(self) -> None:
+        """
+        Backup KDC server.
+        """
+        if self.__backup:
+            return
+
+        self.ssh.run('kdb5_util dump /tmp/mh.kdc.kdb.backup')
+        self.__backup = True
+
+    def restore(self) -> None:
+        """
+        Restore KDC server to its initial contents.
+        """
+
+        if not self.__backup:
+            return
+
+        self.ssh.run('kdb5_util load /tmp/mh.kdc.kdb.backup')

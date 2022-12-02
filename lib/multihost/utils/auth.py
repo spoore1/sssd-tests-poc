@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ..host import MultihostHost
+from ..ssh import SSHClient, SSHProcessResult
 from .base import MultihostUtility
 
 
@@ -50,6 +51,9 @@ class HostAuthentication(MultihostUtility):
             raise ValueError(f'Unknown method {method}, choose from {allowed}.')
 
         return getattr(self, method)
+
+    def kerberos(self, ssh: SSHClient) -> HostKerberos:
+        return HostKerberos(self.host, ssh)
 
 
 class AuthBase(MultihostUtility):
@@ -361,3 +365,128 @@ class HostSudo(AuthBase):
             return False
 
         return True
+
+
+class HostKerberos(MultihostUtility):
+    """
+    Tools for testing Kerberos and KCM.
+
+    .. code-block:: python
+        :caption: Example usage
+
+        with client.ssh('tuser', 'Secret123') as ssh:
+            with client.auth.kerberos(ssh) as krb:
+                krb.kinit('tuser', realm=kdc.realm, password='Secret123')
+                result = krb.klist()
+                assert f'krbtgt/{kdc.realm}@{kdc.realm}' in result.stdout
+    """
+
+    def __init__(self, host: MultihostHost, ssh: SSHClient | None = None) -> None:
+        super().__init__(host)
+        self.ssh: SSHClient = ssh if ssh is not None else host.ssh
+
+    def kinit(
+        self,
+        principal: str,
+        *,
+        password: str,
+        realm: str | None = None,
+        args: list[str] = list()
+    ) -> SSHProcessResult:
+        """
+        Run ``kinit`` command.
+
+        Principal can be without the realm part. The realm can be given in
+        separate parameter ``realm``, in such case the principal name is
+        constructed as ``$principal@$realm``. If the principal does not contain
+        realm specification and ``realm`` parameter is not set then the default
+        realm is used.
+
+        :param principal: Kerberos principal.
+        :type principal: str
+        :param password: Principal's password.
+        :type password: str
+        :param realm: Kerberos realm that is appended to the principal (``$principal@$realm``), defaults to None
+        :type realm: str | None, optional
+        :param args: Additional parameters to ``klist``, defaults to list()
+        :type args: list[str], optional
+        :return: Command result.
+        :rtype: SSHProcessResult
+        """
+        if realm is not None:
+            principal = f'{principal}@{realm}'
+
+        return self.ssh.exec(['kinit', *args, principal], input=password)
+
+    def klist(self, *, args: list[str] = list()) -> SSHProcessResult:
+        """
+        Run ``klist`` command.
+
+        :param args: Additional parameters to ``klist``, defaults to list()
+        :type args: list[str], optional
+        :return: Command result.
+        :rtype: SSHProcessResult
+        """
+        return self.ssh.exec(['klist', *args])
+
+    def kdestroy(
+        self,
+        *,
+        all: bool = False,
+        ccache: str | None = None,
+        principal: str | None = None,
+        realm: str | None = None
+    ) -> SSHProcessResult:
+        """
+        Run ``kdestroy`` command.
+
+        Principal can be without the realm part. The realm can be given in
+        separate parameter ``realm``, in such case the principal name is
+        constructed as ``$principal@$realm``. If the principal does not contain
+        realm specification and ``realm`` parameter is not set then the default
+        realm is used.
+
+        :param all: Destroy all ccaches (``kdestroy -A``), defaults to False
+        :type all: bool, optional
+        :param ccache: Destroy specific ccache (``kdestroy -c $cache``), defaults to None
+        :type ccache: str | None, optional
+        :param principal: Destroy ccache for given principal (``kdestroy -p $princ``), defaults to None
+        :type principal: str | None, optional
+        :param realm: Kerberos realm that is appended to the principal (``$principal@$realm``), defaults to None
+        :type realm: str | None, optional
+        :return: Command result.
+        :rtype: SSHProcessResult
+        """
+        args = []
+
+        if all:
+            args.append('-A')
+
+        if ccache is not None:
+            args.append('-c')
+            args.append(ccache)
+
+        if realm is not None and principal is not None:
+            principal = f'{principal}@{realm}'
+
+        if principal is not None:
+            args.append('-p')
+            args.append(principal)
+
+        return self.ssh.exec(['kdestroy', *args])
+
+    def __enter__(self) -> HostKerberos:
+        """
+        Connect to the host over ssh if not already connected.
+
+        :return: Self..
+        :rtype: HostKerberos
+        """
+        self.ssh.connect()
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback) -> None:
+        """
+        Disconnect.
+        """
+        self.kdestroy(all=True)
