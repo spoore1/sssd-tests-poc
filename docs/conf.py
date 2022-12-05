@@ -28,17 +28,11 @@ project = 'sssd'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    # 'sphinx.ext.autodoc',
+    'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx_design',
-    'autoapi.extension',
     'extensions.directives.TopologyMark',
 ]
-
-autoapi_type = 'python'
-autoapi_dirs = ['../lib']
-autoapi_generate_api_docs = False
-autoapi_python_class_content = 'both'
 
 # Add any paths that contain templates here, relative to this directory.
 # templates_path = ['_templates']
