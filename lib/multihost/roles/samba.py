@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import ldap.modlist
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from ..multihost import Multihost
 
 
-class Samba(LinuxRole):
+class Samba(LinuxRole[SambaHost]):
     """
     Samba service management.
     """
@@ -121,10 +121,10 @@ class SambaObject(BaseObject):
     def _exec(self, op: str, args: list[str] = list(), **kwargs) -> None:
         return self.role.host.ssh.exec(['samba-tool', self.command, op, self.name, *args], **kwargs)
 
-    def _add(self, attrs: dict[str, tuple[BaseObject.cli, any]]) -> None:
+    def _add(self, attrs: dict[str, tuple[BaseObject.cli, Any]]) -> None:
         self._exec('add', self._build_args(attrs))
 
-    def _modify(self, attrs: dict[str, any | list[any] | Samba.Flags | None]) -> None:
+    def _modify(self, attrs: dict[str, Any | list[Any] | Samba.Flags | None]) -> None:
         obj = self.get()
 
         # Remove dn and distinguishedName attributes

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
 
 import pytest
 
@@ -71,14 +72,14 @@ class TopologyMark(object):
 
         return list(self.fixtures.keys())
 
-    def apply(self, mh: Multihost, funcargs: dict[str, any]) -> None:
+    def apply(self, mh: Multihost, funcargs: dict[str, Any]) -> None:
         """
         Create required fixtures by modifying pytest.Item.funcargs.
 
         :param mh: _description_
         :type mh: Multihost
         :param funcargs: Pytest test item ``funcargs`` that will be modified.
-        :type funcargs: dict[str, any]
+        :type funcargs: dict[str, Any]
         """
 
         for path, names in self.mapping.items():

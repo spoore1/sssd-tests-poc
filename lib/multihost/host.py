@@ -116,7 +116,7 @@ class ProviderHost(MultihostHost):
         :type tls: bool, optional
         """
         super().__init__(*args, **kwargs)
-        self.client: dict[str, any] = self.config.get('client', {})
+        self.client: dict[str, Any] = self.config.get('client', {})
 
 
 class LDAPProviderHost(ProviderHost):

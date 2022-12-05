@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from typing import Any
 
 import ldap
 import ldap.ldapobject
@@ -107,9 +108,9 @@ class HostLDAP(MultihostUtility):
         self,
         dn: str,
         *,
-        add: dict[str, any | list[any] | None] = dict(),
-        replace: dict[str, any | list[any] | None] = dict(),
-        delete: dict[str, any | list[any] | None] = dict()
+        add: dict[str, Any | list[Any] | None] = dict(),
+        replace: dict[str, Any | list[Any] | None] = dict(),
+        delete: dict[str, Any | list[Any] | None] = dict()
     ) -> None:
         """
         Modify LDAP entry.
@@ -117,11 +118,11 @@ class HostLDAP(MultihostUtility):
         :param dn: Distinguished name.
         :type dn: str
         :param add: Attributes to add, defaults to dict()
-        :type add: dict[str, any  |  list[any]  |  None], optional
+        :type add: dict[str, Any  |  list[Any]  |  None], optional
         :param replace: Attributes to replace, defaults to dict()
-        :type replace: dict[str, any  |  list[any]  |  None], optional
+        :type replace: dict[str, Any  |  list[Any]  |  None], optional
         :param delete: Attributes to delete, defaults to dict()
-        :type delete: dict[str, any  |  list[any]  |  None], optional
+        :type delete: dict[str, Any  |  list[Any]  |  None], optional
         """
         modlist = []
 
@@ -136,14 +137,14 @@ class HostLDAP(MultihostUtility):
 
         self.conn.modify_s(dn, modlist)
 
-    def __values_to_bytes(self, values: any | list[any]) -> list[bytes]:
+    def __values_to_bytes(self, values: Any | list[Any]) -> list[bytes]:
         """
         Convert values to bytes. Any value is converted to string and then
         encoded into bytes. The input can be either single value or list of
         values or None in which case None is returned.
 
         :param values: Values.
-        :type values: any | list[any]
+        :type values: Any | list[Any]
         :return: Values converted to bytes.
         :rtype: list[bytes]
         """

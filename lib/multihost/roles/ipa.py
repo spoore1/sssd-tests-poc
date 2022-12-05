@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..host import IPAHost
 from .base import BaseObject, LinuxRole
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from ..multihost import Multihost
 
 
-class IPA(LinuxRole):
+class IPA(LinuxRole[IPAHost]):
     """
     IPA service management.
     """
@@ -99,10 +99,10 @@ class IPAObject(BaseObject):
     def _exec(self, op: str, args: list[str] = list(), **kwargs) -> None:
         return self.role.host.ssh.exec(['ipa', f'{self.command}-{op}', self.name, *args], **kwargs)
 
-    def _add(self, attrs: dict[str, tuple[BaseObject.cli, any]] = dict(), input: str | None = None):
+    def _add(self, attrs: dict[str, tuple[BaseObject.cli, Any]] = dict(), input: str | None = None):
         self._exec('add', self._build_args(attrs), input=input)
 
-    def _modify(self, attrs: dict[str, tuple[BaseObject.cli, any]], input: str | None = None):
+    def _modify(self, attrs: dict[str, tuple[BaseObject.cli, Any]], input: str | None = None):
         self._exec('mod', self._build_args(attrs), input=input)
 
     def delete(self) -> None:

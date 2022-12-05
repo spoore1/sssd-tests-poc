@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from ..multihost import Multihost
 
 
-class KDC(LinuxRole):
+class KDC(LinuxRole[KDCHost]):
     """
     Kerberos KDC management.
     """

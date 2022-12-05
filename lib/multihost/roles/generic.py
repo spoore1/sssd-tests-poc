@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from ..host import MultihostHost
 from .base import BaseObject, BaseRole
 from .nfs import NFSExport
 
 
-class GenericProvider(ABC, BaseRole):
+class GenericProvider(ABC, BaseRole[MultihostHost]):
     """
     Generic provider interface. All providers implements this interface.
 

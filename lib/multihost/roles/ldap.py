@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import ldap
 import ldap.ldapobject
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from ..multihost import Multihost
 
 
-class LDAP(LinuxRole):
+class LDAP(LinuxRole[LDAPHost]):
     """
     LDAP service management.
     """
@@ -187,10 +187,10 @@ class LDAPObject(BaseObject):
 
         return self.role.ldap.dn(rdn, basedn)
 
-    def _default(self, value: any, default: any) -> any:
+    def _default(self, value: Any, default: Any) -> Any:
         """
         :return: Value if not None, default value otherwise.
-        :rtype: any
+        :rtype: Any
         """
         if value is None:
             return default
@@ -220,13 +220,13 @@ class LDAPObject(BaseObject):
     def _modify(
         self,
         *,
-        add: dict[str, any | list[any] | None] = dict(),
-        replace: dict[str, any | list[any] | None] = dict(),
-        delete: dict[str, any | list[any] | None] = dict()
+        add: dict[str, Any | list[Any] | None] = dict(),
+        replace: dict[str, Any | list[Any] | None] = dict(),
+        delete: dict[str, Any | list[Any] | None] = dict()
     ) -> None:
         self.role.ldap.modify(self.dn, add=add, replace=replace, delete=delete)
 
-    def _set(self, attrs: dict[str, any]) -> None:
+    def _set(self, attrs: dict[str, Any]) -> None:
         replace = {}
         delete = {}
         for attr, value in attrs.items():

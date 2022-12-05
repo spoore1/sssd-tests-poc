@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from ..multihost import Multihost
 
 
-class NFS(LinuxRole):
+class NFS(LinuxRole[NFSHost]):
     """
     NFS shared folders management.
     """

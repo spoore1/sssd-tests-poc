@@ -48,7 +48,7 @@ class MultihostDomain(object):
         Find desired host class by role.
 
         :param confdict: Host configuration as a dictionary.
-        :type confdict: dict[str, any]
+        :type confdict: dict[str, Any]
         :return: Host instance.
         :rtype: MultihostHost
         """

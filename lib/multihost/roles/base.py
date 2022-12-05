@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pathlib
 from enum import Enum, auto
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from lib.multihost.ssh import SSHClient
 
@@ -18,8 +18,10 @@ from ..utils.tools import HostTools
 if TYPE_CHECKING:
     from ..multihost import Multihost
 
+HostType = TypeVar('HostType', bound=MultihostHost)
 
-class BaseRole(object):
+
+class BaseRole(Generic[HostType]):
     """
     Base role class. Roles are the main interface to the remote hosts that can
     be directly accessed in test cases as fixtures.
@@ -38,13 +40,13 @@ class BaseRole(object):
         self,
         mh: Multihost,
         role: str,
-        host: MultihostHost,
+        host: HostType,
         user_cls: type = None,
         group_cls: type = None
     ) -> None:
-        self.mh = mh
-        self.role = role
-        self.host = host
+        self.mh: Multihost = mh
+        self.role: str = role
+        self.host: HostType = host
 
         # This supports code sharing between native LDAP and AD and Samba roles.
         # AD and Samba has specific user and group objects, everything else is
@@ -137,7 +139,7 @@ class BaseObject(object):
 
     def _build_args(
         self,
-        attrs: dict[str, tuple[BaseObject.cli, any]],
+        attrs: dict[str, tuple[BaseObject.cli, Any]],
         as_script: bool = False,
         admode: bool = False
     ) -> list[str] | str:
@@ -161,7 +163,7 @@ class BaseObject(object):
             args = self._build_args(attrs)
 
         :param attrs: Command line parameters.
-        :type attrs: dict[str, tuple[BaseObject.cli, any]]
+        :type attrs: dict[str, tuple[BaseObject.cli, Any]]
         :param as_script: Return string instead of list of arguments, defaults to False
         :type as_script: bool, optional
         :return: List of as_script (exec style) or string to be used in scripts.
@@ -233,7 +235,7 @@ class BaseObject(object):
 
         return out
 
-    def _include_attr_value(self, attr: any | list[any], value: any) -> list[any]:
+    def _include_attr_value(self, attr: Any | list[Any], value: Any) -> list[Any]:
         if attr is None:
             return [value]
 
@@ -248,7 +250,7 @@ class BaseObject(object):
 
         return attr
 
-    def _to_list(self, value: any | list[any]) -> list[any]:
+    def _to_list(self, value: Any | list[Any]) -> list[Any]:
         if value is None:
             return []
 
@@ -257,22 +259,22 @@ class BaseObject(object):
 
         return [value]
 
-    def _to_string_list(self, value: any | list[any]) -> list[str]:
+    def _to_string_list(self, value: Any | list[Any]) -> list[str]:
         return [str(x) for x in self._to_list(value)]
 
-    def _remove_none_from_list(self, r_list: list[any]) -> list[any]:
+    def _remove_none_from_list(self, r_list: list[Any]) -> list[Any]:
         """
         Remove all elements that are ``None`` from the list.
 
         :param r_list: List of all elements.
-        :type r_list: list[any]
+        :type r_list: list[Any]
         :return: New list with all values from the given list that are not ``None``.
-        :rtype: list[any]
+        :rtype: list[Any]
         """
         return [x for x in r_list if x is not None]
 
 
-class LinuxRole(BaseRole):
+class LinuxRole(BaseRole[HostType]):
     """
     Base linux role.
     """
@@ -281,7 +283,7 @@ class LinuxRole(BaseRole):
         self,
         mh: Multihost,
         role: str,
-        host: MultihostHost,
+        host: HostType,
         user_cls: type = None,
         group_cls: type = None
     ) -> None:
@@ -335,7 +337,7 @@ class LinuxRole(BaseRole):
         self.fs.download_files(artifacts, f'{path}/{self.role}_{self.host.hostname}.tgz')
 
 
-class WindowsRole(BaseRole):
+class WindowsRole(BaseRole[HostType]):
     """
     Base Windows role.
     """

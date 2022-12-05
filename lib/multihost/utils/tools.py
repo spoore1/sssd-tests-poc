@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import jc
 
 from ..host import MultihostHost
@@ -112,7 +114,7 @@ class IdEntry(object):
         return str(self)
 
     @classmethod
-    def FromDict(cls, d: dict[str, any]) -> IdEntry:
+    def FromDict(cls, d: dict[str, Any]) -> IdEntry:
         user = UnixUser(d['uid']['id'], d['uid'].get('name', None))
         group = UnixGroup(d['gid']['id'], d['gid'].get('name', None))
         groups = []
@@ -175,7 +177,7 @@ class PasswdEntry(object):
         return str(self)
 
     @classmethod
-    def FromDict(cls, d: dict[str, any]) -> PasswdEntry:
+    def FromDict(cls, d: dict[str, Any]) -> PasswdEntry:
         return cls(
             name=d.get('username', None),
             password=d.get('password', None),
@@ -229,7 +231,7 @@ class GroupEntry(object):
         return str(self)
 
     @classmethod
-    def FromDict(cls, d: dict[str, any]) -> GroupEntry:
+    def FromDict(cls, d: dict[str, Any]) -> GroupEntry:
         return cls(
             name=d.get('group_name', None),
             password=d.get('password', None),
@@ -326,7 +328,7 @@ class HostGetent(MultihostUtility):
         """
         return self.__exec(GroupEntry, 'group', name)
 
-    def __exec(self, cls, cmd: str, name: str | int) -> any:
+    def __exec(self, cls, cmd: str, name: str | int) -> Any:
         command = self.host.ssh.exec(['getent', cmd, name], raise_on_error=False)
         if command.rc != 0:
             return None

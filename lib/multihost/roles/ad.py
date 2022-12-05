@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..host import ADHost
 from ..ssh import SSHClient, SSHPowerShellProcess, SSHProcessResult
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from ..multihost import Multihost
 
 
-class AD(WindowsRole):
+class AD(WindowsRole[ADHost]):
     """
     AD service management.
     """
@@ -211,10 +211,10 @@ class ADObject(BaseObject):
             {op}-AD{self.command_group} {args}
         ''', **kwargs)
 
-    def _add(self, attrs: dict[str, tuple[BaseObject.cli, any]]) -> None:
+    def _add(self, attrs: dict[str, tuple[BaseObject.cli, Any]]) -> None:
         self._exec('New', self._build_args(attrs))
 
-    def _modify(self, attrs: dict[str, tuple[BaseObject.cli, any]]) -> None:
+    def _modify(self, attrs: dict[str, tuple[BaseObject.cli, Any]]) -> None:
         self._exec('Set', self._build_args(attrs))
 
     def delete(self) -> None:
@@ -239,7 +239,7 @@ class ADObject(BaseObject):
         cmd = self._exec('Get', self._build_args(self._identity))
         return self._parse_attrs(cmd.stdout_lines, attrs)
 
-    def _attrs_to_hash(self, attrs: dict[str, any]) -> str | None:
+    def _attrs_to_hash(self, attrs: dict[str, Any]) -> str | None:
         out = ''
         for key, value in attrs.items():
             if value is not None:
@@ -256,7 +256,7 @@ class ADObject(BaseObject):
 
     def _build_args(
         self,
-        attrs: dict[str, tuple[BaseObject.cli, any]],
+        attrs: dict[str, tuple[BaseObject.cli, Any]],
         as_script: bool = True,
         admode: bool = True
     ) -> list[str] | str:
