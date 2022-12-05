@@ -99,9 +99,13 @@ class MultihostConfig(object):
         confdict: dict[str, Any],
         *,
         log_path: str | None = None,
+        lazy_ssh: bool = False
     ) -> None:
         self.logger: MultihostLogger = MultihostLogger.Setup(log_path)
         """Multihost logger"""
+
+        self.lazy_ssh: bool = lazy_ssh
+        """If True, hosts postpone connecting to ssh when the connection is first required"""
 
         self.domains: list[MultihostDomain] = []
         """Available domains"""

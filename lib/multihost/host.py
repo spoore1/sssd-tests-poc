@@ -79,7 +79,8 @@ class MultihostHost(object):
             shell=shell,
         )
 
-        self.ssh.connect()
+        if not self.domain.config.lazy_ssh:
+            self.ssh.connect()
 
     @property
     def required_fields(self) -> list[str]:

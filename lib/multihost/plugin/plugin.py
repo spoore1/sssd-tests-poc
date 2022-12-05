@@ -53,9 +53,14 @@ class MultihostPlugin(object):
         self.collect_artifacts: bool = config.getoption('collect_artifacts')
         self.multihost_log_path: str = config.getoption('mh_log_path')
         self.multihost_config_path: str = config.getoption('mh_config')
+        self.multihost_lazy_ssh: str = config.getoption('mh_lazy_ssh')
         self.confdict: dict = self.__load_conf(self.multihost_config_path)
 
-        self.multihost = MultihostConfig(self.confdict, log_path=self.multihost_log_path)
+        self.multihost = MultihostConfig(
+            self.confdict,
+            log_path=self.multihost_log_path,
+            lazy_ssh=self.multihost_lazy_ssh
+        )
         self.topology = Topology.FromMultihostConfig(self.confdict)
 
     @classmethod
@@ -97,6 +102,7 @@ class MultihostPlugin(object):
         self.logger.info(textwrap.indent(yaml.dump(self.topology.export(), sort_keys=False), '  '))
         self.logger.info(self._fmt_bold('Additional settings:'))
         self.logger.info(f'  multihost log path: {self.multihost_log_path}')
+        self.logger.info(f'  lazy ssh: {self.multihost_lazy_ssh}')
         self.logger.info(f'  require exact topology: {self.exact_topology}')
         self.logger.info(f'  collect artifacts: {self.collect_artifacts}')
         self.logger.info(f'  artifacts directory: {self.artifacts_dir}')
@@ -300,6 +306,10 @@ def pytest_addoption(parser):
 
     parser.addoption(
         "--mh-config", action="store", help="Path to the multihost configuration file"
+    )
+
+    parser.addoption(
+        "--mh-lazy-ssh", action="store_true", help="Hosts postpone connecting over SSH until it is required"
     )
 
     parser.addoption(

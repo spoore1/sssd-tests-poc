@@ -11,6 +11,8 @@ New command line options
 * ``--mh-config``: path to the multihost configuration file
 * ``--mh-log-path``: multihost logs will be printed to this file, use
   ``/dev/stdout`` if you want to print them to standard output (default: none)
+* ``--mh-lazy-ssh``: SSH connection to hosts are established on the first use,
+  instead of during initialization.
 * ``--collect-artifacts``: ``never`` (never collect artifacts), ``on-failure``
   (only collect artifacts for failed test run), ``always`` (collect artifacts
   even for successful run), default: ``on-failure``
