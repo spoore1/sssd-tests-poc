@@ -56,8 +56,7 @@ their ``automount`` field:
         key3 = auto_sub.key('export3').add(info=nfs_export3)
 
         # Start SSSD
-        client.authselect.select('sssd')
-        client.sssd.enable_responder('autofs')
+        client.sssd.common.autofs()
         client.sssd.start()
 
         # Reload automounter in order fetch updated maps
@@ -103,8 +102,7 @@ their ``automount`` field:
         key2 = auto_home.key('export2').add(info=nfs_export2)
 
         # Start SSSD
-        client.authselect.select('sssd')
-        client.sssd.enable_responder('autofs')
+        client.sssd.common.autofs()
         client.sssd.domain['ipa_automount_location'] = 'boston'
         client.sssd.start()
 

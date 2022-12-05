@@ -111,8 +111,7 @@ def test__10(client: Client, ldap: LDAP):
     u = ldap.user('tuser').add(password='Secret123')
     ldap.sudorule('allow_ls').add(user=u, host='ALL', command='/bin/ls')
 
-    client.authselect.select('sssd', ['with-sudo'])
-    client.sssd.enable_responder('sudo')
+    client.sssd.common.sudo()
     client.sssd.start()
 
     assert client.auth.sudo.list('tuser', 'Secret123', expected=['(root) /bin/ls'])
@@ -124,8 +123,7 @@ def test__11(client: Client, ldap: LDAP):
     u = ldap.user('tuser').add()
     ldap.sudorule('allow_ls').add(user=u, host='ALL', command='/bin/ls', nopasswd=True)
 
-    client.authselect.select('sssd', ['with-sudo'])
-    client.sssd.enable_responder('sudo')
+    client.sssd.common.sudo()
     client.sssd.start()
 
     assert client.auth.sudo.list('tuser', expected=['(root) NOPASSWD: /bin/ls'])
@@ -269,8 +267,7 @@ def test__23(client: Client, ipa: IPA):
     u = ipa.user('tuser').add(password='Secret123')
     ipa.sudorule('allow_ls').add(user=u, host='ALL', command='/bin/ls')
 
-    client.authselect.select('sssd', ['with-sudo'])
-    client.sssd.enable_responder('sudo')
+    client.sssd.common.sudo()
     client.sssd.start()
 
     assert client.auth.sudo.list('tuser', 'Secret123', expected=['(root) /bin/ls'])
@@ -282,8 +279,7 @@ def test__24(client: Client, ipa: IPA):
     u = ipa.user('tuser').add()
     ipa.sudorule('allow_ls').add(user=u, host='ALL', command='/bin/ls', nopasswd=True)
 
-    client.authselect.select('sssd', ['with-sudo'])
-    client.sssd.enable_responder('sudo')
+    client.sssd.common.sudo()
     client.sssd.start()
 
     assert client.auth.sudo.list('tuser', expected=['(root) NOPASSWD: /bin/ls'])
@@ -359,8 +355,7 @@ def test__30(client: Client, provider: GenericProvider):
     provider.sudorule('defaults').add(nopasswd=True)
     provider.sudorule('allow_all').add(user='ALL', host='ALL', command='ALL')
 
-    client.authselect.select('sssd', ['with-sudo'])
-    client.sssd.enable_responder('sudo')
+    client.sssd.common.sudo()
     client.sssd.start()
 
     assert client.auth.sudo.list('tuser', expected=['(root) ALL'])

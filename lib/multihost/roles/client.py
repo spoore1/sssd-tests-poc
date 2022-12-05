@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class Client(LinuxRole):
     def __init__(self, mh: Multihost, role: str, host: MultihostHost) -> None:
         super().__init__(mh, role, host)
-        self.sssd: HostSSSD = HostSSSD(host, self.fs, self.svc, load_config=False)
+        self.sssd: HostSSSD = HostSSSD(host, self.fs, self.svc, self.authselect, load_config=False)
         """
         SSSD management.
         """

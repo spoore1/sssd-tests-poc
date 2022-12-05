@@ -49,8 +49,7 @@ various channels. The class can be accessed from the ``client`` fixture as
         u = ldap.user('test').add(password="Secret123")
         ldap.sudorule('testrule').add(user=u, host='ALL', command='/bin/ls')
 
-        client.authselect.select('sssd', ['with-sudo'])
-        client.sssd.enable_responder('sudo')
+        client.sssd.common.sudo()
         client.sssd.start()
 
         # Test that user can run sudo
@@ -67,8 +66,7 @@ various channels. The class can be accessed from the ``client`` fixture as
         u = ldap.user('test').add(password="Secret123")
         ldap.sudorule('testrule').add(user=u, host='ALL', command='/bin/ls', nopasswd=True)
 
-        client.authselect.select('sssd', ['with-sudo'])
-        client.sssd.enable_responder('sudo')
+        client.sssd.common.sudo()
         client.sssd.start()
 
         # Test that user can run /bin/ls without additional authentication

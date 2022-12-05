@@ -553,6 +553,7 @@ Does it work? Good. Now, you can continue with the following tasks.
         * :class:`lib.multihost.roles.ldap.LDAP`
         * :class:`lib.multihost.roles.client.Client`
         * :class:`lib.multihost.utils.sssd.HostSSSD`
+        * :meth:`lib.multihost.utils.sssd.SSSDCommonConfiguration.sudo`
         * :class:`lib.multihost.utils.auth.HostAuthentication`
         * :class:`lib.multihost.utils.authselect.HostAuthselect`
 
@@ -567,8 +568,7 @@ Does it work? Good. Now, you can continue with the following tasks.
                 u = ldap.user('tuser').add(password='Secret123')
                 ldap.sudorule('allow_ls').add(user=u, host='ALL', command='/bin/ls')
 
-                client.authselect.select('sssd', ['with-sudo'])
-                client.sssd.enable_responder('sudo')
+                client.sssd.common.sudo()
                 client.sssd.start()
 
                 assert client.auth.sudo.list('tuser', 'Secret123', expected=['(root) /bin/ls'])
@@ -577,7 +577,8 @@ Does it work? Good. Now, you can continue with the following tasks.
         .. note::
 
             You need to enable ``with-sudo`` using authselect so sudo can read rules
-            from SSSD.
+            from SSSD. You can use :meth:`lib.multihost.utils.sssd.SSSDCommonConfiguration.sudo`
+            as a shortcut for selecting authselect profile and enabling the sudo responder.
 
 .. dropdown:: Task 11
     :color: secondary
@@ -604,6 +605,7 @@ Does it work? Good. Now, you can continue with the following tasks.
         * :class:`lib.multihost.roles.ldap.LDAP`
         * :class:`lib.multihost.roles.client.Client`
         * :class:`lib.multihost.utils.sssd.HostSSSD`
+        * :meth:`lib.multihost.utils.sssd.SSSDCommonConfiguration.sudo`
         * :class:`lib.multihost.utils.auth.HostAuthentication`
         * :class:`lib.multihost.utils.authselect.HostAuthselect`
 
@@ -618,8 +620,7 @@ Does it work? Good. Now, you can continue with the following tasks.
                 u = ldap.user('tuser').add()
                 ldap.sudorule('allow_ls').add(user=u, host='ALL', command='/bin/ls', nopasswd=True)
 
-                client.authselect.select('sssd', ['with-sudo'])
-                client.sssd.enable_responder('sudo')
+                client.sssd.common.sudo()
                 client.sssd.start()
 
                 assert client.auth.sudo.list('tuser', expected=['(root) NOPASSWD: /bin/ls'])
@@ -1108,6 +1109,7 @@ Does it work? Good. Now, you can continue with the following tasks.
         * :class:`lib.multihost.roles.ipa.IPA`
         * :class:`lib.multihost.roles.client.Client`
         * :class:`lib.multihost.utils.sssd.HostSSSD`
+        * :meth:`lib.multihost.utils.sssd.SSSDCommonConfiguration.sudo`
         * :class:`lib.multihost.utils.auth.HostAuthentication`
 
     .. dropdown:: Display solution
@@ -1121,8 +1123,7 @@ Does it work? Good. Now, you can continue with the following tasks.
                 u = ipa.user('tuser').add(password='Secret123')
                 ipa.sudorule('allow_ls').add(user=u, host='ALL', command='/bin/ls')
 
-                client.authselect.select('sssd', ['with-sudo'])
-                client.sssd.enable_responder('sudo')
+                client.sssd.common.sudo()
                 client.sssd.start()
 
                 assert client.auth.sudo.list('tuser', 'Secret123', expected=['(root) /bin/ls'])
@@ -1153,6 +1154,7 @@ Does it work? Good. Now, you can continue with the following tasks.
         * :class:`lib.multihost.roles.ipa.IPA`
         * :class:`lib.multihost.roles.client.Client`
         * :class:`lib.multihost.utils.sssd.HostSSSD`
+        * :meth:`lib.multihost.utils.sssd.SSSDCommonConfiguration.sudo`
         * :class:`lib.multihost.utils.auth.HostAuthentication`
 
     .. dropdown:: Display solution
@@ -1166,8 +1168,7 @@ Does it work? Good. Now, you can continue with the following tasks.
                 u = ipa.user('tuser').add()
                 ipa.sudorule('allow_ls').add(user=u, host='ALL', command='/bin/ls', nopasswd=True)
 
-                client.authselect.select('sssd', ['with-sudo'])
-                client.sssd.enable_responder('sudo')
+                client.sssd.common.sudo()
                 client.sssd.start()
 
                 assert client.auth.sudo.list('tuser', expected=['(root) NOPASSWD: /bin/ls'])
@@ -1417,6 +1418,7 @@ Does it work? Good. Now, you can continue with the following tasks.
         * :class:`lib.multihost.roles.generic.GenericProvider`
         * :class:`lib.multihost.roles.client.Client`
         * :class:`lib.multihost.utils.sssd.HostSSSD`
+        * :meth:`lib.multihost.utils.sssd.SSSDCommonConfiguration.sudo`
         * :class:`lib.multihost.utils.auth.HostAuthentication`
 
     .. dropdown:: Display solution
@@ -1431,8 +1433,7 @@ Does it work? Good. Now, you can continue with the following tasks.
                 provider.sudorule('defaults').add(nopasswd=True)
                 provider.sudorule('allow_all').add(user='ALL', host='ALL', command='ALL')
 
-                client.authselect.select('sssd', ['with-sudo'])
-                client.sssd.enable_responder('sudo')
+                client.sssd.common.sudo()
                 client.sssd.start()
 
                 assert client.auth.sudo.list('tuser', expected=['(root) ALL'])

@@ -12,6 +12,7 @@ from .base import MultihostUtility
 
 if TYPE_CHECKING:
     from ..roles import BaseRole
+    from .authselect import HostAuthselect
     from .fs import HostFileSystem
     from .service import HostService
 
@@ -23,8 +24,16 @@ class HostSSSD(MultihostUtility):
     All changes are automatically reverted when a test is finished.
     """
 
-    def __init__(self, host: MultihostHost, fs: HostFileSystem, svc: HostService, load_config: bool = False) -> None:
+    def __init__(
+        self,
+        host: MultihostHost,
+        fs: HostFileSystem,
+        svc: HostService,
+        authselect: HostAuthselect,
+        load_config: bool = False
+    ) -> None:
         super().__init__(host)
+        self.authselect: HostAuthselect = authselect
         self.fs = fs
         self.svc = svc
         self.config = configparser.ConfigParser(interpolation=None)
@@ -549,3 +558,23 @@ class SSSDCommonConfiguration(object):
         :type kdc: KDC
         """
         self.sssd.fs.write('/etc/krb5.conf', kdc.config(), user='root', group='root', mode='0644')
+
+    def sudo(self) -> None:
+        """
+        Configure SSSD with sudo.
+
+        #. Select authselect sssd profile with 'with-sudo'
+        #. Enable sudo responder
+        """
+        self.sssd.authselect.select('sssd', ['with-sudo'])
+        self.sssd.enable_responder('sudo')
+
+    def autofs(self) -> None:
+        """
+        Configure SSSD with autofs.
+
+        #. Select authselect sssd profile
+        #. Enable autofs responder
+        """
+        self.sssd.authselect.select('sssd')
+        self.sssd.enable_responder('autofs')
