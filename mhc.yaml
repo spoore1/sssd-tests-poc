@@ -37,6 +37,7 @@ domains:
     role: ad
     username: Administrator@ad.test
     password: vagrant
+    os: windows
     config:
       binddn: Administrator@ad.test
       bindpw: vagrant

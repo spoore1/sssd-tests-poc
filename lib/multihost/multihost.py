@@ -160,14 +160,32 @@ class Multihost(object):
         errors = []
         for item in reversed(self._hosts_and_roles):
             try:
+                # Try to collect artifacts from host before the role is teared down.
+                # We need to do it before the role object is teardown as it may
+                # potentially remove some of the requested artifacts.
                 if isinstance(item, BaseRole):
-                    item.collect_artifacts()
+                    self._collect_artifacts(item.host)
+
                 item.teardown()
             except Exception as e:
                 errors.append(e)
 
         if errors:
             raise Exception(errors)
+
+    def _collect_artifacts(self, host: MultihostHost) -> None:
+        """
+        Collect test artifacts that were requested by the multihost configuration.
+
+        :param host: Host object where the artifacts will be collected.
+        :type host: MultihostHost
+        """
+        dir = self.request.config.getoption("artifacts_dir")
+        mode = self.request.config.getoption("collect_artifacts")
+        if mode == 'never' or (mode == 'on-failure' and self.data.outcome != 'failed'):
+            return
+
+        host.collect_artifacts(f'{dir}/{self.request.node.name}')
 
     def __enter__(self) -> 'Multihost':
         self._setup()

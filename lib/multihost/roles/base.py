@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pathlib
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
@@ -313,28 +312,6 @@ class LinuxRole(BaseRole[HostType]):
         """
         Authentication helpers.
         """
-
-    def collect_artifacts(self) -> None:
-        """
-        Collect test artifacts that were requested by the multihost configuration.
-
-        :meta private:
-        """
-        dir = self.mh.request.config.getoption("artifacts_dir")
-        mode = self.mh.request.config.getoption("collect_artifacts")
-        if mode == 'never' or (mode == 'on-failure' and self.mh.data.outcome != 'failed'):
-            return
-
-        artifacts = self.host.config.get('artifacts', [])
-        if not artifacts:
-            return
-
-        # Create output directory
-        path = f'{dir}/{self.mh.request.node.name}'
-        pathlib.Path(path).mkdir(parents=True, exist_ok=True)
-
-        # Fetch artifacts
-        self.fs.download_files(artifacts, f'{path}/{self.role}_{self.host.hostname}.tgz')
 
 
 class WindowsRole(BaseRole[HostType]):

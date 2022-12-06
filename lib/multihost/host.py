@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import pathlib
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Type
 
 import ldap
@@ -7,10 +10,15 @@ import ldap.ldapobject
 import ldap.modlist
 
 from .logging import MultihostLogger
-from .ssh import SSHBashProcess, SSHClient, SSHPowerShellProcess, SSHProcess
+from .ssh import SSHBashProcess, SSHClient, SSHLog, SSHPowerShellProcess, SSHProcess
 
 if TYPE_CHECKING:
     from .config import MultihostDomain
+
+
+class MultihostHostOS(Enum):
+    Linux = 'linux'
+    Windows = 'windows'
 
 
 class MultihostHost(object):
@@ -36,7 +44,7 @@ class MultihostHost(object):
     * Optional fields: ``config``
     """
 
-    def __init__(self, domain: MultihostDomain, confdict: dict[str, Any], shell: Type[SSHProcess] = SSHBashProcess):
+    def __init__(self, domain: MultihostDomain, confdict: dict[str, Any]):
         """
         :param domain: Multihost domain object.
         :type domain: MultihostDomain
@@ -68,7 +76,27 @@ class MultihostHost(object):
         self.password: str = confdict['password']
 
         # Optional
-        self.config = confdict.get('config', {})
+        self.os: MultihostHostOS = MultihostHostOS.Linux
+        self.config: dict = confdict.get('config', {})
+        self.artifacts: list[str] = self.config.get('artifacts', [])
+
+        # Not configurable
+        self.shell: Type[SSHProcess] = SSHBashProcess
+
+        # Determine host system and shell
+        os = str(confdict.get('os', MultihostHostOS.Linux.value)).lower()
+        try:
+            self.os: MultihostHostOS = MultihostHostOS(os)
+        except ValueError:
+            raise ValueError(f'Value "{os}" is not supported in os field of host configuration')
+
+        match self.os:
+            case MultihostHostOS.Linux:
+                self.shell = SSHBashProcess
+            case MultihostHostOS.Windows:
+                self.shell = SSHPowerShellProcess
+            case _:
+                raise ValueError(f'Unknown operating system: {self.os}')
 
         # SSH connection
         self.ssh: SSHClient = SSHClient(
@@ -76,7 +104,7 @@ class MultihostHost(object):
             user=self.username,
             password=self.password,
             logger=self.logger,
-            shell=shell,
+            shell=self.shell,
         )
 
         if not self.domain.config.lazy_ssh:
@@ -85,6 +113,40 @@ class MultihostHost(object):
     @property
     def required_fields(self) -> list[str]:
         return ['hostname', 'role', 'username', 'password']
+
+    def collect_artifacts(self, dest: str) -> None:
+        """
+        Collect test artifacts that were requested by the multihost configuration.
+
+        :param dest: Destination directory, where the artifacts will be stored.
+        :type dest: str
+        """
+        if not self.artifacts:
+            return
+
+        # Create output directory
+        pathlib.Path(dest).mkdir(parents=True, exist_ok=True)
+
+        # Fetch artifacts
+        match self.os:
+            case MultihostHostOS.Linux:
+                command = f'''
+                    tmp=`mktemp /tmp/mh.host.artifacts.XXXXXXXXX`
+                    tar -czvf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in self.artifacts])} &> /dev/null
+                    base64 "$tmp"
+                    rm -f "$tmp" &> /dev/null
+                '''
+                ext = 'tgz'
+            case MultihostHostOS.Windows:
+                raise NotImplementedError('Artifacts are not supported on Windows machine')
+            case _:
+                raise ValueError(f'Unknown operating system: {self.os}')
+
+        result = self.ssh.run(command, log_level=SSHLog.Error)
+
+        # Store artifacts in single archive
+        with open(f'{dest}/{self.role}_{self.hostname}.{ext}', 'wb') as f:
+            f.write(base64.b64decode(result.stdout))
 
     def setup(self) -> None:
         """
@@ -469,7 +531,7 @@ class ADHost(ProviderHost):
     """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, shell=SSHPowerShellProcess)
+        super().__init__(*args, **kwargs)
 
         # Additional client configuration
         self.client.setdefault('id_provider', 'ad')
