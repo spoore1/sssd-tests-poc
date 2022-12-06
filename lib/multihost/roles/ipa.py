@@ -25,23 +25,10 @@ class IPA(LinuxRole[IPAHost]):
 
     def setup(self) -> None:
         """
-        Setup IPA role.
-
-        #. backup IPA data
-        #. kinit as admin
+        Make sure we have admin's TGT so we can run ipa cli commands.
         """
         super().setup()
-        self.host.backup()
         self.host.kinit()
-
-    def teardown(self) -> None:
-        """
-        Teardown IPA role.
-
-        #. restore original IPA data
-        """
-        self.host.restore()
-        super().teardown()
 
     def user(self, name: str) -> IPAUser:
         """

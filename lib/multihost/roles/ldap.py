@@ -38,24 +38,6 @@ class LDAP(LinuxRole[LDAPHost]):
         Provides API to manipulate automount objects.
         """
 
-    def setup(self) -> None:
-        """
-        Setup LDAP role.
-
-        #. backup LDAP data
-        """
-        super().setup()
-        self.host.backup()
-
-    def teardown(self) -> None:
-        """
-        Teardown LDAP role.
-
-        #. restore original LDAP data
-        """
-        self.host.restore()
-        super().teardown()
-
     def _generate_uid(self) -> int:
         """
         Generate next user id value.

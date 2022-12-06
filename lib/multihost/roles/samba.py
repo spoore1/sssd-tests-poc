@@ -31,24 +31,6 @@ class Samba(LinuxRole[SambaHost]):
         # Set AD schema for automount
         self.automount.set_schema(self.automount.Schema.AD)
 
-    def setup(self) -> None:
-        """
-        Setup Samba role.
-
-        #. backup Samba data
-        """
-        super().setup()
-        self.host.backup()
-
-    def teardown(self) -> None:
-        """
-        Teardown Samba role.
-
-        #. restore original Samba data
-        """
-        self.host.restore()
-        super().teardown()
-
     def user(self, name: str) -> SambaUser:
         """
         Get user object.

@@ -27,24 +27,6 @@ class AD(WindowsRole[ADHost]):
         Provides API to manipulate automount objects.
         """
 
-    def setup(self) -> None:
-        """
-        Setup AD role.
-
-        #. backup AD data
-        """
-        super().setup()
-        self.host.backup()
-
-    def teardown(self) -> None:
-        """
-        Teardown AD role.
-
-        #. restore original AD data
-        """
-        self.host.restore()
-        super().teardown()
-
     def ssh(self, user: str, password: str, *, shell=SSHPowerShellProcess) -> SSHClient:
         """
         Open SSH connection to the host as given user.

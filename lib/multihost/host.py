@@ -86,15 +86,15 @@ class MultihostHost(object):
     def required_fields(self) -> list[str]:
         return ['hostname', 'role', 'username', 'password']
 
-    def backup(self) -> None:
+    def setup(self) -> None:
         """
-        Backup host.
+        Called before execution of each test.
         """
         pass
 
-    def restore(self) -> None:
+    def teardown(self) -> None:
         """
-        Restore host to its original state.
+        Called after execution of each test.
         """
         pass
 
@@ -117,6 +117,32 @@ class ProviderHost(MultihostHost):
         """
         super().__init__(*args, **kwargs)
         self.client: dict[str, Any] = self.config.get('client', {})
+
+    def setup(self) -> None:
+        """
+        Called before execution of each test.
+        """
+        super().setup()
+        self.backup()
+
+    def teardown(self) -> None:
+        """
+        Called after execution of each test.
+        """
+        self.restore()
+        super().teardown()
+
+    def backup(self) -> None:
+        """
+        Backup host's service data.
+        """
+        pass
+
+    def restore(self) -> None:
+        """
+        Restore host's service data.
+        """
+        pass
 
 
 class LDAPProviderHost(ProviderHost):

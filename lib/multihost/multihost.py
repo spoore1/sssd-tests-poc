@@ -87,18 +87,18 @@ class Multihost(object):
 
     def _domain_to_namespace(self, domain: MultihostDomain, topology_domain: TopologyDomain) -> SimpleNamespace:
         ns = SimpleNamespace()
-        for role in domain.roles:
-            if role not in topology_domain:
+        for role_name in domain.roles:
+            if role_name not in topology_domain:
                 continue
 
-            count = topology_domain.get(role)
-            hosts = [self._host_to_role(host) for host in domain.hosts_by_role(role)[:count]]
+            count = topology_domain.get(role_name)
+            roles = [self._host_to_role(host) for host in domain.hosts_by_role(role_name)[:count]]
 
-            self._paths[f'{domain.type}.{role}'] = hosts
-            for index, host in enumerate(hosts):
-                self._paths[f'{domain.type}.{role}[{index}]'] = host
+            self._paths[f'{domain.type}.{role_name}'] = roles
+            for index, role in enumerate(roles):
+                self._paths[f'{domain.type}.{role_name}[{index}]'] = role
 
-            setattr(ns, role, hosts)
+            setattr(ns, role_name, roles)
 
         return ns
 
@@ -123,23 +123,33 @@ class Multihost(object):
 
         return self._paths[path]
 
+    @property
+    def _hosts_and_roles(self) -> list[MultihostHost | BaseRole]:
+        """
+        :return: List containing all hosts and roles available for current test case.
+        :rtype: list[MultihostHost | BaseRole]
+        """
+        roles: list[BaseRole] = [x for x in self._paths.values() if isinstance(x, BaseRole)]
+        hosts: list[MultihostHost] = [x.host for x in roles]
+
+        return list(set(hosts + roles))
+
     def _setup(self) -> None:
         """
-        Setup multihost. A setup method is called on each host to initialize the
-        host to expected state.
+        Setup multihost. A setup method is called on each host and role
+        to initialize the test environment to expected state.
         """
-        setup_ok: list[BaseRole] = []
-        for role in self._paths.values():
-            if isinstance(role, BaseRole):
-                try:
-                    role.setup()
-                except Exception:
-                    # Teardown roles that were successfully setup
-                    for r in reversed(setup_ok):
-                        r.teardown()
-                    raise
+        setup_ok: list[MultihostHost | BaseRole] = []
+        for item in self._hosts_and_roles:
+            try:
+                item.setup()
+            except Exception:
+                # Teardown hosts and roles that were successfully setup before this error
+                for i in reversed(setup_ok):
+                    i.teardown()
+                raise
 
-                setup_ok.append(role)
+            setup_ok.append(item)
 
     def _teardown(self) -> None:
         """
@@ -148,13 +158,13 @@ class Multihost(object):
         test is finished.
         """
         errors = []
-        for role in reversed(self._paths.values()):
-            if isinstance(role, BaseRole):
-                try:
-                    role.collect_artifacts()
-                    role.teardown()
-                except Exception as e:
-                    errors.append(e)
+        for item in reversed(self._hosts_and_roles):
+            try:
+                if isinstance(item, BaseRole):
+                    item.collect_artifacts()
+                item.teardown()
+            except Exception as e:
+                errors.append(e)
 
         if errors:
             raise Exception(errors)

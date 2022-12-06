@@ -20,24 +20,6 @@ class KDC(LinuxRole[KDCHost]):
         super().__init__(mh, role, host)
         self.realm: str = host.realm
 
-    def setup(self) -> None:
-        """
-        Setup KDC role.
-
-        #. backup KDC data
-        """
-        super().setup()
-        self.host.backup()
-
-    def teardown(self) -> None:
-        """
-        Teardown KDC role.
-
-        #. restore original KDC data
-        """
-        self.host.restore()
-        super().teardown()
-
     def kadmin(self, command: str) -> SSHProcessResult:
         """
         Run kadmin command on the KDC.

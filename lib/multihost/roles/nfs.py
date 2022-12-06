@@ -19,20 +19,6 @@ class NFS(LinuxRole[NFSHost]):
         self.hostname: str = host.hostname
         self.exports_dir: str = host.exports_dir
 
-    def setup(self) -> None:
-        """
-        Setup NFS role.
-        """
-        super().setup()
-        self.host.backup()
-
-    def teardown(self) -> None:
-        """
-        Teardown NFS role.
-        """
-        self.host.restore()
-        super().teardown()
-
     def exportfs_reload(self) -> None:
         """
         Reexport all directories.
