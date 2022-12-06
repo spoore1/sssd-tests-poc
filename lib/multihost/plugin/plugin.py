@@ -46,22 +46,15 @@ class MultihostPlugin(object):
 
     def __init__(self, config: pytest.Config) -> None:
         self.logger: logging.Logger = self._create_logger(config.option.verbose > 2)
-        self.multihost: MultihostConfig = None
-        self.topology: Topology = None
+        self.multihost: MultihostConfig | None = None
+        self.topology: Topology | None = None
         self.exact_topology: bool = config.getoption('exact_topology')
         self.artifacts_dir: bool = config.getoption('artifacts_dir')
         self.collect_artifacts: bool = config.getoption('collect_artifacts')
         self.multihost_log_path: str = config.getoption('mh_log_path')
         self.multihost_config_path: str = config.getoption('mh_config')
         self.multihost_lazy_ssh: str = config.getoption('mh_lazy_ssh')
-        self.confdict: dict = self.__load_conf(self.multihost_config_path)
-
-        self.multihost = MultihostConfig(
-            self.confdict,
-            log_path=self.multihost_log_path,
-            lazy_ssh=self.multihost_lazy_ssh
-        )
-        self.topology = Topology.FromMultihostConfig(self.confdict)
+        self.confdict: dict | None = None
 
     @classmethod
     def GetLogger(cls) -> logging.Logger:
@@ -72,6 +65,18 @@ class MultihostPlugin(object):
         return logging.getLogger('lib.multihost.plugin')
 
     def __load_conf(self, path: str) -> dict:
+        """
+        Load multihost configuration from a yaml file.
+
+        :param path: Path to the yaml file.
+        :type path: str
+        :raises ValueError: If not file was provided.
+        :raises IOError: If unable to read the file.
+        :return: Parsed configuration.
+        :rtype: dict
+
+        :meta private:
+        """
         if not path:
             raise ValueError('You need to provide valid multihost configuration file, use --mh-config=$path')
 
@@ -81,13 +86,33 @@ class MultihostPlugin(object):
         except Exception as e:
             raise IOError(f'Unable to open multihost configuration "{path}": {str(e)}')
 
-    @pytest.hookimpl(trylast=True)
-    def pytest_sessionstart(self, session: pytest.Session) -> None:
+    def setup(self) -> None:
         """
-        Log information about given multihost configuration and provided options.
+        Read and apply multihost configuration.
 
         :meta private:
         """
+        self.confdict = self.__load_conf(self.multihost_config_path)
+
+        self.multihost = MultihostConfig(
+            self.confdict,
+            log_path=self.multihost_log_path,
+            lazy_ssh=self.multihost_lazy_ssh
+        )
+
+        self.topology = Topology.FromMultihostConfig(self.confdict)
+
+    @pytest.hookimpl(trylast=True)
+    def pytest_sessionstart(self, session: pytest.Session) -> None:
+        """
+        Setup the module and log information about given multihost configuration
+        and provided options.
+
+        :meta private:
+        """
+        # Calling the setup here instead of in constructor to allow running
+        # pytest --help and other action-less parameters.
+        self.setup()
 
         if self.multihost is None:
             self.logger.info(self._fmt_bold('Multihost configuration:'))
