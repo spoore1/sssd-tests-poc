@@ -23,7 +23,6 @@ def multihost(request: pytest.FixtureRequest) -> MultihostConfig:
     :rtype: MultihostConfig
     """
 
-    # TODO: return QaClass objects
     data:  MultihostItemData = request.node.multihost
     return data.multihost
 
@@ -47,7 +46,7 @@ def mh(request: pytest.FixtureRequest) -> Multihost:
     :yield: lib.multihost.Multihost
     """
 
-    data:  MultihostItemData = request.node.multihost
+    data: MultihostItemData = request.node.multihost
     if data is None:
         nodeid = f'{request.node.parent.nodeid}::{request.node.originalname}'
         raise ValueError(f'{nodeid}: mh fixture requested but no multihost configuration was provided')
