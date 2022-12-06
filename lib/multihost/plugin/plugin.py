@@ -38,6 +38,17 @@ class MultihostItemData(object):
         Test run outcome, available in fixture finalizers.
         """
 
+    @staticmethod
+    def SetData(item: pytest.Item, data: MultihostItemData | None) -> None:
+        item.stash[DataStashKey] = data
+
+    @staticmethod
+    def GetData(item: pytest.Item) -> MultihostItemData:
+        return item.stash[DataStashKey]
+
+
+DataStashKey = pytest.StashKey[MultihostItemData | None]()
+
 
 class MultihostPlugin(object):
     """
@@ -189,9 +200,9 @@ class MultihostPlugin(object):
 
         for item in items:
             data = MultihostItemData(self.multihost, item.topology_mark) if self.multihost else None
-            item.multihost = data
+            MultihostItemData.SetData(item, data)
 
-            if not self._can_run_test(item, item.multihost):
+            if not self._can_run_test(item, data):
                 deselected.append(item)
                 continue
 
@@ -213,7 +224,7 @@ class MultihostPlugin(object):
         :meta private:
         """
 
-        data:  MultihostItemData = item.multihost
+        data:  MultihostItemData = MultihostItemData.GetData(item)
         if data is None:
             return
 
@@ -237,7 +248,7 @@ class MultihostPlugin(object):
         :meta private:
         """
 
-        data: MultihostItemData = item.multihost
+        data: MultihostItemData = MultihostItemData.GetData(item)
         if data is None:
             return
 
@@ -252,7 +263,7 @@ class MultihostPlugin(object):
         """
         outcome = yield
 
-        data: MultihostItemData = item.multihost
+        data: MultihostItemData = MultihostItemData.GetData(item)
         result: pytest.TestReport = outcome.get_result()
 
         if result.when != 'call':
@@ -290,10 +301,10 @@ class MultihostPlugin(object):
 
         if data.topology_mark is not None:
             if self.exact_topology:
-                if item.multihost.topology_mark.topology != self.topology:
+                if data.topology_mark.topology != self.topology:
                     return False
             else:
-                if not self.topology.satisfies(item.multihost.topology_mark.topology):
+                if not self.topology.satisfies(data.topology_mark.topology):
                     return False
 
         return True

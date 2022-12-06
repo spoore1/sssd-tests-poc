@@ -53,13 +53,25 @@ class Multihost(object):
             mh.sssd.client[0]  # -> host object, instance of specific role
     """
 
-    def __init__(self, request: pytest.FixtureRequest, multihost: MultihostConfig, topology: Topology) -> None:
+    def __init__(
+        self,
+        request: pytest.FixtureRequest,
+        data: MultihostItemData,
+        multihost: MultihostConfig,
+        topology: Topology
+    ) -> None:
         """
+        :param request: Pytest request.
+        :type request: pytest.FixtureRequest
+        :param data: Multihost item data.
+        :type data: MultihostItemData
         :param multihost: Multihost configuration.
         :type multihost: MultihostConfig
+        :param topology: Multihost topology for this request.
+        :type topology: Topology
         """
 
-        self.data: MultihostItemData = request.node.multihost
+        self.data: MultihostItemData = data
         """
         Multihost item data.
         """

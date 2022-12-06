@@ -23,7 +23,7 @@ def multihost(request: pytest.FixtureRequest) -> MultihostConfig:
     :rtype: MultihostConfig
     """
 
-    data:  MultihostItemData = request.node.multihost
+    data: MultihostItemData = MultihostItemData.GetData(request.node)
     return data.multihost
 
 
@@ -46,10 +46,10 @@ def mh(request: pytest.FixtureRequest) -> Multihost:
     :yield: lib.multihost.Multihost
     """
 
-    data: MultihostItemData = request.node.multihost
+    data: MultihostItemData = MultihostItemData.GetData(request.node)
     if data is None:
         nodeid = f'{request.node.parent.nodeid}::{request.node.originalname}'
         raise ValueError(f'{nodeid}: mh fixture requested but no multihost configuration was provided')
 
-    with Multihost(request, data.multihost, data.topology_mark.topology) as mh:
+    with Multihost(request, data, data.multihost, data.topology_mark.topology) as mh:
         yield mh
