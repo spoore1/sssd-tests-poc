@@ -1,3 +1,15 @@
+# :warning: This repository is OUTDATED and was converted into upstream pull request
+
+The repository has been converted into upstream pull request that has some changes not available in this repository. **This repository is therefore outdated.**
+
+Please refer to the pull request instead. Once the pull request is merged, this repository is going to be deleted.
+
+## https://github.com/SSSD/sssd/pull/6521
+
+:warning: :warning: :warning:
+
+---
+
 # SSSD Test Framework PoC
 
 **Work in progress.**
