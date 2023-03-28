@@ -9,6 +9,7 @@ from .kdc import KDC
 from .ldap import LDAP
 from .nfs import NFS
 from .samba import Samba
+from .ipatuura import IPATuura
 
 __all__ = [
     "AD",
@@ -23,6 +24,7 @@ __all__ = [
     "NFS",
     "Samba",
     "WindowsRole",
+    "IPATuura",
 ]
 
 
@@ -35,6 +37,7 @@ def get_role_class(role: str) -> type[BaseRole]:
         'samba': Samba,
         'nfs': NFS,
         'kdc': KDC,
+        'ipa': IPATuura,
     }
 
     if role not in mapping:

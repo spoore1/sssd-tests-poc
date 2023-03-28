@@ -444,6 +444,54 @@ class IPAHost(ProviderHost):
         self.ssh.exec(['ipa-restore', '--unattended', '--password', self.adminpw, '--data', '--online', self.__backup])
 
 
+class KeycloakHost(ProviderHost):
+    """
+    Keycloak host object.
+
+    Provides features specific for Keycloak server.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.adminpw = self.config.get('adminpw', 'Secret123')
+
+        # Backup of original data
+        self.__backup: str = None
+
+    def kclogin(self) -> None:
+        """
+        Obtain ``admin`` user credentials for Keycloak
+        """
+        self.ssh.exec(['kinit', 'admin'], input=self.adminpw)
+
+    def backup(self) -> None:
+        """
+        Backup all IPA server data.
+
+        This is done by calling ``ipa-backup --data --online`` on the server
+        and can take several seconds to finish.
+        """
+        if self.__backup is not None:
+            return
+
+        # self.ssh.run('ipa-backup --data --online')
+        # cmd = self.ssh.run('ls /var/lib/ipa/backup | tail -n 1')
+        # self.__backup = cmd.stdout.strip()
+
+    def restore(self) -> None:
+        """
+        Restore all IPA server data to its original state.
+
+        This is done by calling ``ipa-restore --data --online`` on the server
+        and can take several seconds to finish.
+        """
+        if self.__backup is None:
+            return
+
+        # self.ssh.exec(['ipa-restore', '--unattended', '--password', self.adminpw, '--data', '--online', self.__backup])
+
+
 class SambaHost(LDAPProviderHost):
     """
     Samba host object.

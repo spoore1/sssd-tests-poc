@@ -5,3 +5,4 @@ __pycache__
 *.py[cod]
 artifacts
 docs/_build
+sssd-tests-poc.code-workspace
